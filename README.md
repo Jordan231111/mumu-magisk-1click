@@ -64,7 +64,7 @@ This table shows the corresponding UI elements in both the Chinese and English v
 | **Game Settings**            | ![Game Settings](ChineseAssets/MuMuPlayer_qgSjNhkU05.png)             | ![Game Settings](assets/MuMuPlayer_qgSjNhkU05.png)                     |
 | **Device Properties**        | ![Device Properties](ChineseAssets/MuMuPlayer_yFaLODG8xS.png)         | ![Device Properties](assets/MuMuPlayer_yFaLODG8xS.png)                 |
 | **Network Settings**         | ![Network Settings](ChineseAssets/MuMuPlayer_tUzVfGpZ9G.png)          | ![Network Settings](assets/MuMuPlayer_tUzVfGpZ9G.png)                  |
-| **FPS settings**      | ![Shortcuts](ChineseAssets/MuMuPlayer_9t5cRTMdC6.png)                 | ![Shortcuts](assets/MuMuPlayer_9t5cRTMdC6.png)                         |
+| **Performance Monitor / FPS Display**      | ![Performance Monitor](ChineseAssets/MuMuPlayer_9t5cRTMdC6.png)                 | ![Performance Monitor](assets/MuMuPlayer_9t5cRTMdC6.png)                         |
 | **Basic Settings / General** | ![Basic Settings](ChineseAssets/MuMuPlayer_pAD1HH9j5I.png)            | ![Basic Settings](assets/MuMuPlayer_pAD1HH9j5I.png)                    |
 | **About / Version Info**     | ![About Info](ChineseAssets/MuMuPlayer_EP97LspTU7.png)                | ![About Info](assets/MuMuPlayer_EP97LspTU7.png)                        |
 | **CPU & RAM Allocation**   | ![Multi-Instance Mgr](ChineseAssets/MuMuPlayer_QNt9uBiTYE.png)        | ![Multi-Instance Mgr](assets/MuMuPlayer_QNt9uBiTYE.png)                |
