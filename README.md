@@ -81,7 +81,7 @@ This table shows the corresponding UI elements in both the Chinese and English v
 
 The `Tools/` directory contains utilities that can be useful after setting up Magisk (demonstrated in part 2 of the video):
 
-- **`LSPosed-v1.10.1-7180-zygisk-release.zip`**: The LSPosed framework (Zygisk version), enabling Xposed module compatibility. ([Source Repository](https://github.com/LSPosed/LSPosed) / [Build Source Fork](https://github.com/JingMatrix/LSPosed))
+- **`LSPosed-v1.10.1-7180-zygisk-release.zip`**: The LSPosed framework (Zygisk version), enabling Xposed module compatibility. ([Source Repository (Outdated)](https://github.com/LSPosed/LSPosed) / [Build Source Fork (RECOMMENDED)](https://github.com/JingMatrix/LSPosed))
 - **`NeoZygisk-v1-0.0-233-ce4a658-release.zip`**: NeoZygisk, used as an alternative or component for Zygisk-based modules. ([Source Repository](https://github.com/JingMatrix/NeoZygisk))
 - **`HMAL_4.2.0.r104_release_2.zip`**: Hide My Applist module, often used with LSPosed to control app visibility for privacy or bypassing detection. ([Source Repository](https://github.com/pumPCin/HMAL))
 - **`MT_2.14.5-clone_MOD-V3-PREVIEW.apk`**: MT Manager, a powerful file manager and APK editor for Android. (No official link provided for this specific modded version)
