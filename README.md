@@ -1,9 +1,32 @@
-⚡ **THE ULTIMATE MUMU POWERHOUSE FOR DEVELOPERS & GAMERS!**
-One command transforms MuMu into a fully-featured development environment AND gaming beast with Magisk Kitsune, signature-spoofed Play Services, microG, and performance tweaks in just ~3 minutes.
+## Complete GitHub README.md
 
----
+```markdown
+# 🚀 MuMu Magisk 1-Click Setup
 
-## 🚀 QUICK START (Windows PowerShell **as Admin**)
+![MuMu Magisk Setup](https://i.imgur.com/yourimage.png)
 
-```powershell
-powershell -NoP -NonI -W Hidden -Command "Set-ExecutionPolicy Bypass -Scope Process -Force; iwr -useb https://raw.githubusercontent.com/Jordan231111/mumu-magisk-1click/main/setup.ps1 | iex"
+One-click solution to transform MuMu Player into the ultimate development and gaming powerhouse with Magisk Kitsune, writable system partition, and performance optimizations.
+
+## ✨ Features
+
+- **Automatic MuMu Detection**: Finds your MuMu installation across any drive
+- **Root Access**: Enables root mode in MuMu configuration
+- **Writable System**: Makes system partition writable for Magisk installation
+- **Backup & Restore**: Creates backups of original configuration for easy restoration
+- **Dev-Ready**: Perfect environment for app testing, debugging and modification
+- **Gaming Optimized**: Performance tweaks for maximum FPS and smoothness
+
+## 🔧 Quick Installation
+
+### Windows
+
+Run as administrator in Command Prompt:
+
+```cmd
+curl -s https://raw.githubusercontent.com/Jordan231111/mumu-magisk-1click/main/Setup.bat -o setup.bat && setup.bat
+
+
+
+If you need to revert changes, simply run:
+'''cmd
+curl -s https://raw.githubusercontent.com/Jordan231111/mumu-magisk-1click/main/RestoreMuMuConfig.bat -o restore.bat && restore.bat
