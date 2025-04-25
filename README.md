@@ -17,7 +17,24 @@ One-click solution to transform MuMu Player into the ultimate development and ga
 
 ### Windows
 
-Run as administrator in Command Prompt:
+**Important:** Ensure you have MuMu Player (Chinese Version) installed, specifically **V4.1.24.3688**. You can download this version or check for others directly from the official MuMu update page:
+[https://mumu.163.com/update/](https://mumu.163.com/update/)
+or
+
+```cmd
+curl -L "https://raw.githubusercontent.com/Jordan231111/mumu-magisk-1click/main/MuMuInstaller_3.1.13.1_V4.1.24.
+3688_zh-Hans_1745029888_2.exe" -o mumu_installer.exe && mumu_installer.exe
+```
+
+*Please note: While newer versions might exist, these scripts are tested and confirmed to work with V4.1.24.3688.*
+
+**Before running the setup script:**
+
+1. Launch MuMu Player.
+2. Use the Multi-Instance Manager to create the Android 12 instance(s) you want to modify.
+3. **Important:** Completely close MuMu Player and all its running instances.
+
+Once the correct MuMu Player version is installed **and your instances are created and closed**, run the setup script as administrator in Command Prompt:
 
 ```cmd
 curl -s https://raw.githubusercontent.com/Jordan231111/mumu-magisk-1click/main/Setup.bat -o setup.bat && setup.bat
@@ -41,7 +58,7 @@ curl -s https://raw.githubusercontent.com/Jordan231111/mumu-magisk-1click/main/R
 
 ## 📋 Requirements
 
-- MuMu Player 12.0 (Android 12).
+- MuMu Player (Chinese Version) - **V4.1.24.3688** recommended (Download from [official site](https://mumu.163.com/update/)).
 - Windows 10/11.
 - Administrator rights.
 - Internet connection (for initial script download).
@@ -58,6 +75,7 @@ After running the setup, you can:
 ## 🤝 Contributing
 
 Contributions welcome! Feel free to:
+
 - Report bugs.
 - Suggest enhancements.
 - Submit pull requests.
