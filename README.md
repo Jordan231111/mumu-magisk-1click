@@ -19,7 +19,8 @@ One-click solution to transform MuMu Player into the ultimate development and ga
 
 **Important:** Ensure you have MuMu Player (Chinese Version) installed, specifically **V4.1.24.3688**. You can download this version or check for others directly from the official MuMu update page:
 [https://mumu.163.com/update/](https://mumu.163.com/update/)
-or
+
+or use this to automatically install a working version
 
 ```cmd
 curl -L "https://raw.githubusercontent.com/Jordan231111/mumu-magisk-1click/main/MuMuInstaller_3.1.13.1_V4.1.24.
