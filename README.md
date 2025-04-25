@@ -1,6 +1,6 @@
 # 🚀 MuMu Magisk 1-Click Setup
 
-[MuMu Magisk Setup](https://youtu.be/bBj8CE55lpk)
+[Watch the MuMu Magisk Setup video on YouTube](https://youtu.be/bBj8CE55lpk)
 
 One-click solution to transform MuMu Player into the ultimate development and gaming powerhouse with Magisk Kitsune, writable system partition, and performance optimizations.
 
