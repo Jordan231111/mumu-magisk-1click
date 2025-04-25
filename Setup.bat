@@ -1,6 +1,33 @@
 @echo off
 setlocal enabledelayedexpansion
 
+:: Check for admin rights and self-elevate if needed
+>nul 2>&1 "%SYSTEMROOT%\system32\cacls.exe" "%SYSTEMROOT%\system32\config\system"
+if %errorlevel% neq 0 (
+    echo Requesting administrative privileges...
+    goto UACPrompt
+) else (
+    goto gotAdmin
+)
+
+:UACPrompt
+    echo Set UAC = CreateObject^("Shell.Application"^) > "%temp%\getadmin.vbs"
+    echo UAC.ShellExecute "%~s0", "", "", "runas", 1 >> "%temp%\getadmin.vbs"
+    "%temp%\getadmin.vbs"
+    exit /B
+
+:gotAdmin
+    if exist "%temp%\getadmin.vbs" del "%temp%\getadmin.vbs"
+    cd /d "%~dp0"
+
+:: Kill MuMu processes
+echo Stopping MuMu processes...
+taskkill /f /im MuMuVMMHeadless.exe 2>nul
+taskkill /f /im MuMuPlayer.exe 2>nul
+taskkill /f /im MuMuPlayerService.exe 2>nul
+taskkill /f /im MuMuVMMSVC.exe 2>nul
+taskkill /f /im MuMuMultiPlayer.exe 2>nul
+
 set "vms_path="
 
 rem Find MuMu vms directory silently
