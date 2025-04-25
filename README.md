@@ -41,6 +41,16 @@ Once the correct MuMu Player version is installed **and your instances are creat
 curl -s https://raw.githubusercontent.com/Jordan231111/mumu-magisk-1click/main/Setup.bat -o setup.bat && setup.bat
 ```
 
+## 🎥 Video Tutorials
+
+**Part 1 (Basic Setup & Play Store):**
+
+[MEDIA=youtube]bBj8CE55lpk[/MEDIA]
+
+**Part 2 (Advanced Setup & Optimization):**
+
+[MEDIA=youtube]XGNkyvmAckE[/MEDIA]
+
 ## ⚙️ Visual Settings Guide (Chinese vs English)
 
 This table shows the corresponding UI elements in both the Chinese and English versions referenced during setup or common configuration. The English labels provide context for the Chinese UI screenshots.
@@ -67,6 +77,17 @@ This table shows the corresponding UI elements in both the Chinese and English v
 4. Updates `vm_config.json` to make the system partition writable.
 5. Prepares the environment for Magisk Kitsune installation.
 
+## 🛠️ Bundled Tools
+
+The `Tools/` directory contains utilities that can be useful after setting up Magisk (demonstrated in part 2 of the video):
+
+- **`LSPosed-v1.10.1-7180-zygisk-release.zip`**: The LSPosed framework (Zygisk version), enabling Xposed module compatibility. ([Source Repository](https://github.com/LSPosed/LSPosed) / [Build Source Fork](https://github.com/JingMatrix/LSPosed))
+- **`NeoZygisk-v1-0.0-233-ce4a658-release.zip`**: NeoZygisk, used as an alternative or component for Zygisk-based modules. ([Source Repository](https://github.com/JingMatrix/NeoZygisk))
+- **`HMAL_4.2.0.r104_release_2.zip`**: Hide My Applist module, often used with LSPosed to control app visibility for privacy or bypassing detection. ([Source Repository](https://github.com/pumPCin/HMAL))
+- **`MT_2.14.5-clone_MOD-V3-PREVIEW.apk`**: MT Manager, a powerful file manager and APK editor for Android. (No official link provided for this specific modded version)
+
+These tools are provided for convenience. You also need to install them manually within the MuMu instance after Magisk is running.
+
 ## 🔄 Restore Original Settings
 
 If you need to revert changes, simply run:
@@ -91,6 +112,12 @@ After running the setup, you can:
 3. Use ADB/development tools with root access.
 4. Test apps with elevated permissions and hooks.
 
+## 💬 Need Help?
+
+If you run into issues or have questions, feel free to reach out:
+
+Telegram ▶ <https://t.me/+6EreKfc983UzMjgx>
+
 ## 🤝 Contributing
 
 Contributions welcome! Feel free to:
@@ -100,9 +127,21 @@ Contributions welcome! Feel free to:
 - Submit pull requests.
 - Share your experiences.
 
+## ❤️ Support the Project
+
+If you find this tool helpful, consider supporting its development:
+
+[Support on Ko-fi](https://ko-fi.com/yejordan)
+
 ## ⚠️ Disclaimer
 
 This tool is for educational and development purposes only. Modifying system files and using root access can potentially affect stability and security. Use at your own risk. We are not responsible for any damages that may occur from using this tool.
+
+## ✨ Credits & Legal Notes
+
+- **Magisk Kitsune:** This project utilizes Magisk Kitsune for root management. ([Magisk Official](https://github.com/topjohnwu/Magisk) / [Kitsune Fork](https://github.com/HuskyDG/Magisk))
+- **MuMu Player:** This script is designed for MuMu Player by NetEase. ([Official Site](https://mumu.163.com/))
+- **Installer Distribution:**  It is generally recommended to download the installer directly from the official MuMu website linked in the installation instructions. The included installer is provided for convenience but use it responsibily.
 
 ## 📜 License
 
