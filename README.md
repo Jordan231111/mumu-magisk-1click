@@ -84,7 +84,7 @@ The `Tools/` directory contains utilities that can be useful after setting up Ma
 - **`LSPosed-v1.10.1-7180-zygisk-release.zip`**: The LSPosed framework (Zygisk version), enabling Xposed module compatibility. ([Source Repository (Outdated)](https://github.com/LSPosed/LSPosed) / [Build Source Fork (RECOMMENDED)](https://github.com/JingMatrix/LSPosed))
 - **`NeoZygisk-v1-0.0-233-ce4a658-release.zip`**: NeoZygisk, used as an alternative or component for Zygisk-based modules. ([Source Repository](https://github.com/JingMatrix/NeoZygisk))
 - **`HMAL_4.2.0.r104_release_2.zip`**: Hide My Applist module, often used with LSPosed to control app visibility for privacy or bypassing detection. ([Source Repository](https://github.com/pumPCin/HMAL))
-- **`MT_2.14.5-clone_MOD-V3-PREVIEW.apk`**: MT Manager, a powerful file manager and APK editor for Android. (No official link provided for this specific modded version)
+- **`MT_2.14.5-clone_MOD-V3-PREVIEW.apk`**: MT Manager, a powerful file manager and APK editor for Android. (Can be found on platinmods or slxshMods telegram)
 - **`core-patch-4.6.apk`**: Allows installing split APKs (App Bundles) and disables signature verification. ([Source Repository](https://github.com/LSPosed/CorePatch/releases))
 
 These tools are provided for convenience. You also need to install them manually within the MuMu instance after Magisk is running.
