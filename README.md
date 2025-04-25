@@ -32,10 +32,12 @@ curl -L "https://raw.githubusercontent.com/Jordan231111/mumu-magisk-1click/main/
 **Before running the setup script:**
 
 1. Launch MuMu Player.
-2. Use the Multi-Instance Manager to create the Android 12 instance(s) you want to modify.
-3. **Important:** Completely close MuMu Player and all its running instances.
+2. Download and install [Kitsune Magisk](https://github.com/1q23lyc45/KitsuneMagisk/releases) (`app-release.apk`) - a fork of Magisk specifically optimized for emulators. This file is also included in the `Tools/` directory of this repository.
+3. Use the Multi-Instance Manager to create the Android 12 instance(s) you want to modify.
+4. **Important:** Open and launch the created instances at least once.
+5. **Important:** Completely close MuMu Player and all its running instances.
 
-Once the correct MuMu Player version is installed **and your instances are created and closed**, run the setup script as administrator in Command Prompt:
+Once MuMu Player and Kitsune Magisk are installed **and your instances have been launched and then closed**, run the setup script as administrator in Command Prompt:
 
 ```cmd
 curl -s https://raw.githubusercontent.com/Jordan231111/mumu-magisk-1click/main/Setup.bat -o setup.bat && setup.bat
@@ -85,6 +87,7 @@ I recommend copying the settings shown in these images for optimal performance.
 
 The `Tools/` directory contains utilities that can be useful after setting up Magisk (demonstrated in part 2 of the video):
 
+- **`app-release.apk`**: Kitsune Magisk installer - a fork of Magisk specifically optimized for emulators. ([Source Repository](https://github.com/1q23lyc45/KitsuneMagisk/releases))
 - **`LSPosed-v1.10.1-7180-zygisk-release.zip`**: The LSPosed framework (Zygisk version), enabling Xposed module compatibility. ([Source Repository (Outdated)](https://github.com/LSPosed/LSPosed) / [Build Source Fork (RECOMMENDED)](https://github.com/JingMatrix/LSPosed))
 - **`NeoZygisk-v1-0.0-233-ce4a658-release.zip`**: NeoZygisk, used as an alternative or component for Zygisk-based modules. ([Source Repository](https://github.com/JingMatrix/NeoZygisk))
 - **`HMAL_4.2.0.r104_release_2.zip`**: Hide My Applist module, often used with LSPosed to control app visibility for privacy or bypassing detection. ([Source Repository](https://github.com/pumPCin/HMAL))
