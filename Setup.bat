@@ -64,10 +64,14 @@ for /d %%f in ("!vms_path!\*") do (
                 if not errorlevel 1 (
                     set "line=!line:"root_mode": "0"="root_mode": "1"!"
                 )
+                echo !line! | find """choose"": ""disk_share.mode.readonly""" > nul
+                if not errorlevel 1 (
+                    set "line=!line:"choose": "disk_share.mode.readonly"="choose": "disk_share.mode.writable"!"
+                )
                 echo !line!>> "%%f\configs\customer_config_temp.json"
             )
             move /y "%%f\configs\customer_config_temp.json" "!config_file!" > nul
-            echo [%%~nxf] Updated root_mode in customer_config.json
+            echo [%%~nxf] Updated root_mode and system disk mode in customer_config.json
         )
         
         rem Process vm_config.json
