@@ -21,8 +21,7 @@ One-click solution to transform MuMu Player into the ultimate development and ga
 or use this to automatically install a working version
 
 ```cmd
-curl -L "https://raw.githubusercontent.com/Jordan231111/mumu-magisk-1click/main/MuMuInstaller_3.1.13.1_V4.1.24.
-3688_zh-Hans_1745029888_2.exe" -o mumu_installer.exe && mumu_installer.exe
+curl -L "https://raw.githubusercontent.com/Jordan231111/mumu-magisk-1click/main/MuMuInstaller_3.1.13.1_V4.1.24.3688_zh-Hans_1745029888_2.exe" -o mumu_installer.exe && mumu_installer.exe
 ```
 
 *Please note: While newer versions might exist, these scripts are tested and confirmed to work with V4.1.24.3688.*
@@ -59,19 +58,20 @@ I recommend copying the settings shown in these images for optimal performance.
 
 > ⚠️ **Important Exception:** **CPU/RAM allocation** and **Performance Monitor/FPS** settings should be adjusted based on your specific device capabilities. Do not copy these directly from the screenshots.
 
-| Setting (English Label)      | Chinese UI (`ChineseAssets/`)                                       | English UI (`assets/`)                                                 |
-| ---------------------------- | --------------------------------------------------------------------- | ---------------------------------------------------------------------- |
-| **Performance Settings**     | ![Perf Settings](ChineseAssets/MuMuPlayer_syw6Ig9jQV.png)             | ![Perf Settings](assets/MuMuPlayer_syw6Ig9jQV.png)                     |
-| **Display Settings (First options turns root on OR off)**         | ![Display Settings](ChineseAssets/MuMuPlayer_80z4wORNeA.png)          | ![Display Settings](assets/MuMuPlayer_80z4wORNeA%20(1).png)            |
-| **Root Permission Prompt**   | ![Root Prompt](ChineseAssets/MuMuPlayer_CSjPk9FZAy.png)               | ![Root Prompt](assets/MuMuPlayer_CSjPk9FZAy.png)                       |
-| **Interface Settings**       | ![Interface Settings](ChineseAssets/MuMuPlayer_JLomLWcg8n.png)        | ![Interface Settings](assets/MuMuPlayer_JLomLWcg8n.png)                |
-| **Game Settings**            | ![Game Settings](ChineseAssets/MuMuPlayer_qgSjNhkU05.png)             | ![Game Settings](assets/MuMuPlayer_qgSjNhkU05.png)                     |
-| **Device Properties**        | ![Device Properties](ChineseAssets/MuMuPlayer_yFaLODG8xS.png)         | ![Device Properties](assets/MuMuPlayer_yFaLODG8xS.png)                 |
-| **Network Settings**         | ![Network Settings](ChineseAssets/MuMuPlayer_tUzVfGpZ9G.png)          | ![Network Settings](assets/MuMuPlayer_tUzVfGpZ9G.png)                  |
-| **Performance Monitor / FPS Display**      | ![Performance Monitor](ChineseAssets/MuMuPlayer_9t5cRTMdC6.png)                 | ![Performance Monitor](assets/MuMuPlayer_9t5cRTMdC6.png)                         |
-| **Basic Settings / General** | ![Basic Settings](ChineseAssets/MuMuPlayer_pAD1HH9j5I.png)            | ![Basic Settings](assets/MuMuPlayer_pAD1HH9j5I.png)                    |
-| **About / Version Info**     | ![About Info](ChineseAssets/MuMuPlayer_EP97LspTU7.png)                | ![About Info](assets/MuMuPlayer_EP97LspTU7.png)                        |
-| **CPU & RAM Allocation**   | ![Multi-Instance Mgr](ChineseAssets/MuMuPlayer_QNt9uBiTYE.png)        | ![Multi-Instance Mgr](assets/MuMuPlayer_QNt9uBiTYE.png)                |
+| Setting (English Label)        | Chinese UI (`ChineseAssets/`)                           | English UI (`assets/`)                             |
+|--------------------------------|--------------------------------------------------------|-----------------------------------------------------|
+| **Other Settings**             | ![Other Settings](ChineseAssets/MuMuPlayer_syw6Ig9jQV.png) | ![Other Settings](assets/OtherSettings.png)         |
+| **More Other Settings**        | ![More Settings](ChineseAssets/MuMuPlayer_80z4wORNeA.png) | ![More Settings](assets/otherSettings2.png)         |
+| *(First option turns root on/off)* |                                                        |                                                     |
+| **Root Permission Prompt**     | ![Root Prompt](ChineseAssets/MuMuPlayer_CSjPk9FZAy.png)    | ![Root Prompt](assets/MuMuPlayer_CSjPk9FZAy.png)    |
+| **Interface Settings**         | ![Interface](ChineseAssets/MuMuPlayer_JLomLWcg8n.png)      | ![Interface](assets/MuMuPlayer_JLomLWcg8n.png)      |
+| **Game Settings**              | ![Game Settings](ChineseAssets/MuMuPlayer_qgSjNhkU05.png)  | ![Game Settings](assets/MuMuPlayer_qgSjNhkU05.png)  |
+| **Device Properties**          | ![Device](ChineseAssets/MuMuPlayer_yFaLODG8xS.png)         | ![Device](assets/MuMuPlayer_yFaLODG8xS.png)         |
+| **Network Settings**           | ![Network](ChineseAssets/MuMuPlayer_tUzVfGpZ9G.png)        | ![Network](assets/MuMuPlayer_tUzVfGpZ9G.png)        |
+| **Performance Monitor / FPS**  | ![Monitor](ChineseAssets/MuMuPlayer_9t5cRTMdC6.png)        | ![Monitor](assets/MuMuPlayer_9t5cRTMdC6.png)        |
+| **Basic Settings / General**   | ![Basic](ChineseAssets/MuMuPlayer_pAD1HH9j5I.png)          | ![Basic](assets/MuMuPlayer_pAD1HH9j5I.png)          |
+| **About / Version Info**       | ![About](ChineseAssets/MuMuPlayer_EP97LspTU7.png)          | ![About](assets/MuMuPlayer_EP97LspTU7.png)          |
+| **CPU & RAM Allocation**       | ![RAM](ChineseAssets/MuMuPlayer_QNt9uBiTYE.png)            | ![RAM](assets/MuMuPlayer_QNt9uBiTYE.png)            |
 
 ### What Happens Behind the Scenes
 
