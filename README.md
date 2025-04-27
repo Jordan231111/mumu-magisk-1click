@@ -44,13 +44,11 @@ curl -s https://raw.githubusercontent.com/Jordan231111/mumu-magisk-1click/main/S
 
 **Part 1 (Basic Setup & Play Store):**
 
-[![Part 1 Video](https://img.youtube.com/vi/bBj8CE55lpk/0.jpg)](https://www.youtube.com/watch?v=bBj8CE55lpk)
-*Click thumbnail to watch Part 1*
+[Watch Part 1 Video Tutorial (YouTube)](https://www.youtube.com/watch?v=bBj8CE55lpk)
 
 **Part 2 (Advanced Setup & Optimization):**
 
-[![Part 2 Video](https://img.youtube.com/vi/XGNkyvmAckE/0.jpg)](https://www.youtube.com/watch?v=XGNkyvmAckE)
-*Click thumbnail to watch Part 2*
+[Watch Part 2 Video Tutorial (YouTube)](https://www.youtube.com/watch?v=XGNkyvmAckE)
 
 ## ⚙️ Visual Settings Guide (Chinese vs English)
 
