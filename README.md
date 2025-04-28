@@ -55,6 +55,7 @@ curl -s https://raw.githubusercontent.com/Jordan231111/mumu-magisk-1click/main/S
 This table shows the corresponding UI elements in both the Chinese and English versions referenced during setup or common configuration. The English labels provide context for the Chinese UI screenshots.
 
 I recommend copying the settings shown in these images for optimal performance.
+Or Follow this guide here to make the entire mumu UI in english (recommended) https://platinmods.com/threads/how-to-change-language-on-mumu-player-12.225627/
 
 > ⚠️ **Important Exception:** **CPU/RAM allocation** and **Performance Monitor/FPS** settings should be adjusted based on your specific device capabilities. Do not copy these directly from the screenshots.
 
