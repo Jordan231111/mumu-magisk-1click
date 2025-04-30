@@ -39,40 +39,74 @@ jobs:
           }
           Write-Host "Found existing installer: $oldInstaller"
 
-          Write-Host "Attempting to download latest installer from $downloadUrl"
+          Write-Host "Attempting to determine download filename from $downloadUrl"
           $downloadPath = "." # Download to current directory
+          $newInstaller = $null
+          $response = $null
+
           try {
-            # Invoke-WebRequest will attempt to use the name from Content-Disposition header
-            # Store the response object to potentially get the filename later if needed
-            $response = Invoke-WebRequest -Uri $downloadUrl -OutFile "$downloadPath\temp_installer.exe" -UseBasicParsing -MaximumRedirection 0 -ErrorAction Stop
-            # -OutFile might not automatically use the server's suggested filename.
-            # Let's try getting the suggested filename from headers first.
-            $contentDisposition = $response.Headers.'Content-Disposition'
-            $fileNameMatch = [regex]::Match($contentDisposition, 'filename="?([^"]+)"?')
-            if ($fileNameMatch.Success) {
-              $newInstaller = $fileNameMatch.Groups[1].Value
-              Rename-Item -Path "$downloadPath\temp_installer.exe" -NewName $newInstaller -ErrorAction SilentlyContinue
-              Write-Host "Used filename from Content-Disposition: $newInstaller"
-            } else {
-              # Fallback: If no Content-Disposition, find the newest .exe file (less reliable)
-              Write-Warning "Could not determine filename from Content-Disposition header. Falling back to finding newest matching file."
-              Remove-Item -Path "$downloadPath\temp_installer.exe" -ErrorAction SilentlyContinue # Clean up temp file if not renamed
-              # Redownload without -OutFile to let it auto-name (might not work as expected)
-              # Or, a better fallback might be needed. Let's stick to finding newest for now.
-              # Re-running Get-ChildItem after potential download/rename
-              Start-Sleep -Seconds 2 # Give filesystem a moment
-              $newInstallerItem = Get-ChildItem -Path $downloadPath -Filter $installerPattern | Sort-Object LastWriteTime -Descending | Select-Object -First 1
-              $newInstaller = $newInstallerItem.Name
+            # Step 1: Make an initial request to follow redirects and get headers/final URL
+            $request = [System.Net.WebRequest]::Create($downloadUrl)
+            $request.AllowAutoRedirect = $true
+            $request.Method = 'HEAD' # Use HEAD request to avoid downloading body initially
+
+            $response = $request.GetResponse()
+
+            # Step 2: Try getting filename from Content-Disposition header
+            $contentDisposition = $response.Headers['Content-Disposition']
+            if ($contentDisposition) {
+                Write-Host "Found Content-Disposition header: $contentDisposition"
+                $fileNameMatch = [regex]::Match($contentDisposition, 'filename="?([^"]+)"?')
+                if ($fileNameMatch.Success) {
+                    $newInstaller = $fileNameMatch.Groups[1].Value.Trim()
+                    Write-Host "Extracted filename from Content-Disposition: $newInstaller"
+                }
             }
+
+            # Step 3: If header failed, try getting filename from the final URL
+            if (-not $newInstaller) {
+                $finalUri = $response.ResponseUri.AbsoluteUri
+                Write-Host "Content-Disposition did not yield filename. Trying final URL: $finalUri"
+                if ($finalUri) {
+                    $newInstaller = [System.IO.Path]::GetFileName($finalUri)
+                    if ($newInstaller -match '^\?' ) { # Handle cases where filename might be in query string (less common for downloads)
+                         Write-Warning "Filename from URL seems to be a query string. Clearing."
+                         $newInstaller = $null
+                    } else {
+                        Write-Host "Extracted filename from final URL: $newInstaller"
+                    }
+                }
+            }
+
+            # Step 4: Validate filename and proceed with actual download
+            if (-not $newInstaller -or $newInstaller -notlike $installerPattern) {
+                Write-Error "Failed to determine a valid installer filename (pattern: $installerPattern). Found: '$newInstaller'"
+                Write-Host "changes_made=false" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
+                exit 0
+            }
+
+            $fullPath = Join-Path $downloadPath $newInstaller
+            Write-Host "Determined filename: $newInstaller. Proceeding with download to $fullPath"
+
+            # Perform the actual download using Invoke-WebRequest
+            Invoke-WebRequest -Uri $downloadUrl -OutFile $fullPath -UseBasicParsing -ErrorAction Stop
+            Write-Host "Download successful."
+
           } catch {
-            Write-Error "Download failed: $($_.Exception.Message)"
+            Write-Error "Operation failed: $($_.Exception.Message)"
             Write-Host "changes_made=false" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
             exit 0 # Exit cleanly, no changes
+          } finally {
+              # Ensure the response stream is closed
+              if ($response -ne $null) {
+                  $response.Close()
+                  $response = $null
+              }
           }
 
-
-          if (-not $newInstaller) {
-            Write-Error "Download seems to have failed or no installer file found after download attempt."
+          # Check if file exists after download attempt
+          if (-not (Test-Path -Path $fullPath)) {
+            Write-Error "Installer file $newInstaller not found after download attempt."
             Write-Host "changes_made=false" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
             exit 0 # Exit cleanly, no changes
           }
