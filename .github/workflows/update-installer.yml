@@ -1,0 +1,114 @@
+name: Update MuMu Installer
+
+on:
+  workflow_dispatch: # Allows manual triggering
+  schedule:
+    - cron: '0 0 1 * *' # Runs at 00:00 on the 1st day of every month
+
+permissions:
+  contents: write # Needed to commit and push changes
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Download latest installer and update README
+        id: update_script
+        run: |
+          DOWNLOAD_URL="https://adl.netease.com/d/g/a11/c/cn_top?dfuid=elk_nUX7eop&nonce=bdc9iC"
+          INSTALLER_PATTERN="MuMuInstaller_*.exe"
+          README_FILE="README.md"
+          CHANGES_MADE="false" # Default to no changes
+
+          echo "Looking for existing installer..."
+          # Find the current installer filename in the repo
+          OLD_INSTALLER=$(ls $INSTALLER_PATTERN | head -n 1)
+          if [ -z "$OLD_INSTALLER" ]; then
+            echo "Warning: Could not find existing installer matching pattern '$INSTALLER_PATTERN'."
+            # Optionally, you could try to extract it from README as a fallback
+            # OLD_INSTALLER=$(grep -o 'MuMuInstaller_[^"]*.exe' "$README_FILE" | head -n 1)
+          fi
+          echo "Found existing installer: $OLD_INSTALLER"
+
+          echo "Attempting to download latest installer from $DOWNLOAD_URL"
+          # Use curl -LJO. -J tries to use server-provided filename, -O saves locally with that name.
+          # We capture stderr to get the filename curl *actually* uses, as suggested by the server.
+          DOWNLOAD_OUTPUT=$(curl -s -LJO "$DOWNLOAD_URL" --stderr -)
+
+          # Extract the filename curl saved the file as (it prints this to stderr with -J)
+          # Example stderr output: curl: Saved file '/path/to/MuMuInstaller_NewVersion.exe'
+          # NEW_INSTALLER=$(echo "$DOWNLOAD_OUTPUT" | grep -oE "Saved file '[^']+'" | sed -E "s/Saved file '(.*)'/\\1/" | xargs basename)
+          # Simpler approach: Assume download worked and find the *newest* matching file.
+          # This is less robust if multiple downloads happen or other .exe files exist.
+          # A better approach is needed if curl doesn't give filename easily.
+          # Let's try finding the newest *.exe after download.
+          sleep 2 # Give filesystem a moment
+          NEW_INSTALLER=$(ls -t $INSTALLER_PATTERN 2>/dev/null | head -n 1)
+
+          if [ -z "$NEW_INSTALLER" ]; then
+            echo "Error: Download failed or no installer file found after download."
+            echo "Curl output: $DOWNLOAD_OUTPUT"
+            echo "changes_made=false" >> $GITHUB_OUTPUT
+            exit 0 # Exit cleanly, no changes
+          fi
+
+          echo "Downloaded/Found new installer: $NEW_INSTALLER"
+
+          # Compare old and new filenames
+          if [ "$NEW_INSTALLER" != "$OLD_INSTALLER" ] && [ -n "$OLD_INSTALLER" ]; then
+            echo "New version detected ($NEW_INSTALLER vs $OLD_INSTALLER). Updating..."
+            CHANGES_MADE="true"
+
+            echo "Removing old installer: $OLD_INSTALLER"
+            rm -f "$OLD_INSTALLER"
+
+            echo "Updating README.md..."
+            # Use sed to replace the filename in the specific curl command line in README.md
+            # Using a marker or more specific pattern would be safer if README structure changes often.
+            # This assumes the filename is the only part changing on that specific line.
+            # Using '#' as sed delimiter to avoid issues with '/' in the URL/path.
+            sed -i "s#\(curl -L \"https://raw.githubusercontent.com/Jordan231111/mumu-magisk-1click/main/\)$OLD_INSTALLER\(\" -o mumu_installer.exe\)#\\1$NEW_INSTALLER\\2#" "$README_FILE"
+            if [ $? -ne 0 ]; then
+               echo "Error: Failed to update README.md with sed."
+               # Revert potential partial changes? Or just signal no changes?
+               CHANGES_MADE="false"
+            fi
+
+            if [ "$CHANGES_MADE" = "true" ]; then
+              echo "Staging changes..."
+              git config --global user.name 'github-actions[bot]'
+              git config --global user.email 'github-actions[bot]@users.noreply.github.com'
+              git add "$README_FILE"
+              git add "$NEW_INSTALLER" # Add the new installer file
+              # If the old file was properly removed, `git add .` might also work, but being specific is safer.
+              # git add .
+
+              echo "Committing changes..."
+              git commit -m "chore: Update MuMu installer to $NEW_INSTALLER"
+            fi
+
+          else
+            echo "Installer filename ($NEW_INSTALLER) is the same as the old one ($OLD_INSTALLER) or old installer not found. No update needed."
+            # Clean up the downloaded file if it wasn't needed
+            if [ "$NEW_INSTALLER" != "$OLD_INSTALLER" ]; then
+               echo "Removing duplicate downloaded file: $NEW_INSTALLER"
+               rm -f "$NEW_INSTALLER"
+            fi
+            CHANGES_MADE="false"
+          fi
+
+          echo "changes_made=$CHANGES_MADE" >> $GITHUB_OUTPUT
+
+      - name: Commit and push changes
+        if: steps.update_script.outputs.changes_made == 'true'
+        run: |
+          git push origin HEAD:${{ github.ref_name }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }} # Use the default token
+
+      - name: No changes detected
+        if: steps.update_script.outputs.changes_made == 'false'
+        run: echo "No new installer version detected or update failed." 
