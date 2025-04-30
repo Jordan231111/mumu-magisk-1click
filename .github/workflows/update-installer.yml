@@ -10,7 +10,10 @@ permissions:
 
 jobs:
   update:
-    runs-on: ubuntu-latest
+    runs-on: windows-latest # Changed from ubuntu-latest
+    defaults:
+      run:
+        shell: pwsh # Use PowerShell
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -18,66 +21,114 @@ jobs:
       - name: Download latest installer and update README
         id: update_script
         run: |
-          DOWNLOAD_URL="https://adl.netease.com/d/g/a11/c/cn_top?dfuid=elk_nUX7eop&nonce=bdc9iC"
-          INSTALLER_PATTERN="MuMuInstaller_*.exe"
-          README_FILE="README.md"
-          TEMP_INSTALLER="temp_installer.exe"
-          CHANGES_MADE="false" # Default to no changes
+          $downloadUrl = "https://adl.netease.com/d/g/a11/c/cn_top?dfuid=elk_nUX7eop&nonce=bdc9iC"
+          $installerPattern = "MuMuInstaller_*.exe"
+          $readmeFile = "README.md"
+          $changesMade = "false" # Default to no changes
 
-          echo "Looking for existing installer..."
-          OLD_INSTALLER=$(ls $INSTALLER_PATTERN 2>/dev/null | head -n 1)
+          Write-Host "Looking for existing installer..."
+          # Find the current installer filename in the repo
+          $oldInstallerItem = Get-ChildItem -Path . -Filter $installerPattern | Sort-Object LastWriteTime -Descending | Select-Object -First 1
+          $oldInstaller = $oldInstallerItem.Name
+          if (-not $oldInstaller) {
+            Write-Warning "Could not find existing installer matching pattern '$installerPattern'."
+            # Optionally, extract from README as fallback (more complex in PS)
+            # $readmeContent = Get-Content $readmeFile -Raw
+            # $match = [regex]::Match($readmeContent, 'MuMuInstaller_([^\"]*)\.exe')
+            # if ($match.Success) { $oldInstaller = $match.Value }
+          }
+          Write-Host "Found existing installer: $oldInstaller"
 
-          if [ -z "$OLD_INSTALLER" ]; then
-            echo "Error: Could not find existing installer matching pattern '$INSTALLER_PATTERN'. Cannot compare for updates."
-            echo "changes_made=false" >> $GITHUB_OUTPUT
-            exit 0
-          fi
-          echo "Found existing installer: $OLD_INSTALLER"
+          Write-Host "Attempting to download latest installer from $downloadUrl"
+          $downloadPath = "." # Download to current directory
+          try {
+            # Invoke-WebRequest will attempt to use the name from Content-Disposition header
+            # Store the response object to potentially get the filename later if needed
+            $response = Invoke-WebRequest -Uri $downloadUrl -OutFile "$downloadPath\temp_installer.exe" -UseBasicParsing -MaximumRedirection 0 -ErrorAction Stop
+            # -OutFile might not automatically use the server's suggested filename.
+            # Let's try getting the suggested filename from headers first.
+            $contentDisposition = $response.Headers.'Content-Disposition'
+            $fileNameMatch = [regex]::Match($contentDisposition, 'filename="?([^"]+)"?')
+            if ($fileNameMatch.Success) {
+              $newInstaller = $fileNameMatch.Groups[1].Value
+              Rename-Item -Path "$downloadPath\temp_installer.exe" -NewName $newInstaller -ErrorAction SilentlyContinue
+              Write-Host "Used filename from Content-Disposition: $newInstaller"
+            } else {
+              # Fallback: If no Content-Disposition, find the newest .exe file (less reliable)
+              Write-Warning "Could not determine filename from Content-Disposition header. Falling back to finding newest matching file."
+              Remove-Item -Path "$downloadPath\temp_installer.exe" -ErrorAction SilentlyContinue # Clean up temp file if not renamed
+              # Redownload without -OutFile to let it auto-name (might not work as expected)
+              # Or, a better fallback might be needed. Let's stick to finding newest for now.
+              # Re-running Get-ChildItem after potential download/rename
+              Start-Sleep -Seconds 2 # Give filesystem a moment
+              $newInstallerItem = Get-ChildItem -Path $downloadPath -Filter $installerPattern | Sort-Object LastWriteTime -Descending | Select-Object -First 1
+              $newInstaller = $newInstallerItem.Name
+            }
+          } catch {
+            Write-Error "Download failed: $($_.Exception.Message)"
+            Write-Host "changes_made=false" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
+            exit 0 # Exit cleanly, no changes
+          }
 
-          echo "Attempting to download latest installer to $TEMP_INSTALLER..."
-          if curl --fail -s -L "$DOWNLOAD_URL" -o "$TEMP_INSTALLER"; then
-            echo "Download successful."
 
-            if [ ! -s "$TEMP_INSTALLER" ]; then
-              echo "Error: Downloaded file $TEMP_INSTALLER is empty."
-              rm -f "$TEMP_INSTALLER"
-              echo "changes_made=false" >> $GITHUB_OUTPUT
-              exit 0
-            fi
+          if (-not $newInstaller) {
+            Write-Error "Download seems to have failed or no installer file found after download attempt."
+            Write-Host "changes_made=false" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
+            exit 0 # Exit cleanly, no changes
+          }
 
-            echo "Calculating checksums..."
-            OLD_SUM=$(sha256sum "$OLD_INSTALLER" | awk '{ print $1 }')
-            NEW_SUM=$(sha256sum "$TEMP_INSTALLER" | awk '{ print $1 }')
+          Write-Host "Downloaded/Found new installer: $newInstaller"
 
-            echo "Old checksum: $OLD_SUM"
-            echo "New checksum: $NEW_SUM"
+          # Compare old and new filenames
+          if (($newInstaller -ne $oldInstaller) -and $oldInstaller) {
+            Write-Host "New version detected ($newInstaller vs $oldInstaller). Updating..."
+            $changesMade = "true"
 
-            if [ "$OLD_SUM" != "$NEW_SUM" ]; then
-              echo "Installer content HAS CHANGED!"
-              # --- PROBLEM --- 
-              # We know the content is new, but we don't have the correct new filename
-              # from the server. We cannot reliably update the README or commit the file
-              # with the correct versioned name.
-              # For now, we will report this and exit without making changes.
-              # Manual intervention or a different strategy to get the filename is needed.
-              echo "Action Required: New installer content detected, but automatic filename update is not possible."
-              echo "Please check the download URL and update the installer file and README.md manually."
-              CHANGES_MADE="false" # Set to false because we cannot complete the update
-              # --- END PROBLEM --- 
-            else
-              echo "Installer content is the same. No update needed."
-              CHANGES_MADE="false"
-            fi
-            # Clean up the temporary file
-            rm -f "$TEMP_INSTALLER"
-          else
-            echo "Error: Download failed (curl exit code $?)."
-            # Clean up potentially partially downloaded file
-            rm -f "$TEMP_INSTALLER"
-            CHANGES_MADE="false"
-          fi
+            Write-Host "Removing old installer: $oldInstaller"
+            Remove-Item -Path $oldInstaller -Force -ErrorAction SilentlyContinue
 
-          echo "changes_made=$CHANGES_MADE" >> $GITHUB_OUTPUT
+            Write-Host "Updating README.md..."
+            $readmeContent = Get-Content $readmeFile -Raw
+            # Escape regex special characters in filenames if necessary (though unlikely for this pattern)
+            $oldInstallerEscaped = [regex]::Escape($oldInstaller)
+            $newInstallerEscaped = [regex]::Escape($newInstaller)
+            # Use -replace operator for regex replacement
+            $updatedReadmeContent = $readmeContent -replace "(curl -L `"https://raw.githubusercontent.com/Jordan231111/mumu-magisk-1click/main/)$oldInstallerEscaped(`" -o mumu_installer.exe\)", "`$1$newInstaller`$2"
+
+            if ($readmeContent -ne $updatedReadmeContent) {
+                Set-Content -Path $readmeFile -Value $updatedReadmeContent -Encoding utf8
+            } else {
+                 Write-Warning "Failed to find and replace the installer name in README.md."
+                 # Revert potential partial changes? Or just signal no changes?
+                 $changesMade = "false"
+                 # Optionally: Restore old installer if removed?
+                 # Copy-Item -Path $newInstaller -Destination $oldInstaller # This assumes new wasn't identical
+            }
+
+            if ($changesMade -eq "true") {
+              Write-Host "Staging changes..."
+              git config --global user.name 'github-actions[bot]'
+              git config --global user.email 'github-actions[bot]@users.noreply.github.com'
+              git add $readmeFile
+              git add $newInstaller # Add the new installer file
+              # If the old file was properly removed, `git add .` might also work, but being specific is safer.
+              # git add .
+
+              Write-Host "Committing changes..."
+              git commit -m "chore: Update MuMu installer to $newInstaller"
+            }
+
+          } else {
+            Write-Host "Installer filename ($newInstaller) is the same as the old one ($oldInstaller) or old installer not found. No update needed."
+            # Clean up the downloaded file if it wasn't needed and is different from old one
+            if (($newInstaller -ne $oldInstaller) -and (Test-Path -Path $newInstaller)) {
+               Write-Host "Removing duplicate downloaded file: $newInstaller"
+               Remove-Item -Path $newInstaller -Force -ErrorAction SilentlyContinue
+            }
+            $changesMade = "false"
+          }
+
+          Write-Host "changes_made=$changesMade" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
 
       - name: Commit and push changes
         if: steps.update_script.outputs.changes_made == 'true'
@@ -88,4 +139,4 @@ jobs:
 
       - name: No changes detected
         if: steps.update_script.outputs.changes_made == 'false'
-        run: echo "No new installer version detected or update failed." 
+        run: Write-Host "No new installer version detected or update failed." 
