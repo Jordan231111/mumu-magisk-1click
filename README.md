@@ -21,7 +21,7 @@ One-click solution to transform MuMu Player into the ultimate development and ga
 or use this to automatically install a working version
 
 ```cmd
-curl -L "https://raw.githubusercontent.com/Jordan231111/mumu-magisk-1click/main/MuMuInstaller_3.1.13.1_V4.1.24.3688_zh-Hans_1745029888_2.exe" -o mumu_installer.exe && mumu_installer.exe
+curl -L "https://raw.githubusercontent.com/Jordan231111/mumu-magisk-1click/main/MuMuInstaller_3.1.13.1_V4.1.25.3699_zh-Hans_1745636834.exe" -o mumu_installer.exe && mumu_installer.exe
 ```
 
 *Please note: While newer versions might exist, these scripts are tested and confirmed to work with V4.1.24.3688.*
