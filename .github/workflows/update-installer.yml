@@ -39,80 +39,55 @@ jobs:
           }
           Write-Host "Found existing installer: $oldInstaller"
 
-          Write-Host "Attempting to determine download filename from $downloadUrl"
+          Write-Host "Attempting direct download from $downloadUrl"
           $downloadPath = "." # Download to current directory
+          $tempFileName = "temp_installer.download"
+          $tempFullPath = Join-Path $downloadPath $tempFileName
           $newInstaller = $null
-          $response = $null
+          $fullPath = $null # Will be set after finding the actual file
 
           try {
-            # Step 1: Make an initial request to follow redirects and get headers/final URL
-            $request = [System.Net.WebRequest]::Create($downloadUrl)
-            $request.AllowAutoRedirect = $true
-            # $request.Method = 'HEAD' # Use HEAD request to avoid downloading body initially <-- REVERTING THIS
-            # Default method is GET, which is needed for this server to provide filename
+            # Step 1: Direct Download to a temporary file
+            Write-Host "Downloading to temporary file: $tempFullPath"
+            Invoke-WebRequest -Uri $downloadUrl -OutFile $tempFullPath -UseBasicParsing -ErrorAction Stop
+            Write-Host "Initial download to temp file complete."
 
-            $response = $request.GetResponse()
+            # Step 2: Find the newest actual installer file by pattern
+            Start-Sleep -Seconds 2 # Give filesystem a moment
+            $newestInstallerItem = Get-ChildItem -Path $downloadPath -Filter $installerPattern | Sort-Object LastWriteTime -Descending | Select-Object -First 1
 
-            # Step 2: Try getting filename from Content-Disposition header
-            $contentDisposition = $response.Headers['Content-Disposition']
-            if ($contentDisposition) {
-                Write-Host "Found Content-Disposition header: $contentDisposition"
-                $fileNameMatch = [regex]::Match($contentDisposition, 'filename="?([^"]+)"?')
-                if ($fileNameMatch.Success) {
-                    $newInstaller = $fileNameMatch.Groups[1].Value.Trim()
-                    Write-Host "Extracted filename from Content-Disposition: $newInstaller"
-                }
-            }
-
-            # Step 3: If header failed, try getting filename from the final URL
-            if (-not $newInstaller) {
-                $finalUri = $response.ResponseUri.AbsoluteUri
-                Write-Host "Content-Disposition did not yield filename. Trying final URL: $finalUri"
-                if ($finalUri) {
-                    $newInstaller = [System.IO.Path]::GetFileName($finalUri)
-                    if ($newInstaller -match '^\?' ) { # Handle cases where filename might be in query string (less common for downloads)
-                         Write-Warning "Filename from URL seems to be a query string. Clearing."
-                         $newInstaller = $null
-                    } else {
-                        Write-Host "Extracted filename from final URL: $newInstaller"
-                    }
-                }
-            }
-
-            # Step 4: Validate filename and proceed with actual download
-            if (-not $newInstaller -or $newInstaller -notlike $installerPattern) {
-                Write-Error "Failed to determine a valid installer filename (pattern: $installerPattern). Found: '$newInstaller'"
+            if (-not $newestInstallerItem) {
+                Write-Error "Could not find any file matching pattern '$installerPattern' after download."
+                # Clean up temp file before exiting
+                Remove-Item $tempFullPath -Force -ErrorAction SilentlyContinue
                 Write-Host "changes_made=false" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
                 exit 0
             }
 
-            $fullPath = Join-Path $downloadPath $newInstaller
-            Write-Host "Determined filename: $newInstaller. Proceeding with download to $fullPath"
+            $newInstaller = $newestInstallerItem.Name
+            $fullPath = $newestInstallerItem.FullName # Use the full path found
+            Write-Host "Found newest matching installer: $newInstaller"
 
-            # Perform the actual download using Invoke-WebRequest
-            Invoke-WebRequest -Uri $downloadUrl -OutFile $fullPath -UseBasicParsing -ErrorAction Stop
-            Write-Host "Download successful."
+            # Step 3: Clean up the temporary file if it's different from the found installer
+            if (($tempFullPath -ne $fullPath) -and (Test-Path $tempFullPath)) {
+                Write-Host "Removing temporary download file: $tempFullPath"
+                Remove-Item $tempFullPath -Force -ErrorAction SilentlyContinue
+            }
 
           } catch {
-            Write-Error "Operation failed: $($_.Exception.Message)"
-            Write-Host "changes_made=false" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
-            exit 0 # Exit cleanly, no changes
-          } finally {
-              # Ensure the response stream is closed
-              if ($response -ne $null) {
-                  $response.Close()
-                  $response = $null
-              }
-          }
-
-          # Check if file exists after download attempt
-          if (-not (Test-Path -Path $fullPath)) {
-            Write-Error "Installer file $newInstaller not found after download attempt."
+            Write-Error "Download operation failed: $($_.Exception.Message)"
+            # Clean up temp file if download failed
+            Remove-Item $tempFullPath -Force -ErrorAction SilentlyContinue
             Write-Host "changes_made=false" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
             exit 0 # Exit cleanly, no changes
           }
 
-          Write-Host "Downloaded/Found new installer: $newInstaller"
+          # Check if the determined file exists (should exist if logic above worked)
+          if (-not $newInstaller -or -not (Test-Path -Path $fullPath)) {
+            Write-Error "Installer file $newInstaller not found after download and discovery phase."
+            Write-Host "changes_made=false" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
+            exit 0 # Exit cleanly, no changes
+          }
 
           # Compare old and new filenames
           if (($newInstaller -ne $oldInstaller) -and $oldInstaller) {
