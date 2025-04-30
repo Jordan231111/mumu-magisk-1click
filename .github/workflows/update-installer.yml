@@ -21,82 +21,59 @@ jobs:
           DOWNLOAD_URL="https://adl.netease.com/d/g/a11/c/cn_top?dfuid=elk_nUX7eop&nonce=bdc9iC"
           INSTALLER_PATTERN="MuMuInstaller_*.exe"
           README_FILE="README.md"
+          TEMP_INSTALLER="temp_installer.exe"
           CHANGES_MADE="false" # Default to no changes
 
           echo "Looking for existing installer..."
-          # Find the current installer filename in the repo
-          OLD_INSTALLER=$(ls $INSTALLER_PATTERN | head -n 1)
+          OLD_INSTALLER=$(ls $INSTALLER_PATTERN 2>/dev/null | head -n 1)
+
           if [ -z "$OLD_INSTALLER" ]; then
-            echo "Warning: Could not find existing installer matching pattern '$INSTALLER_PATTERN'."
-            # Optionally, you could try to extract it from README as a fallback
-            # OLD_INSTALLER=$(grep -o 'MuMuInstaller_[^"]*.exe' "$README_FILE" | head -n 1)
+            echo "Error: Could not find existing installer matching pattern '$INSTALLER_PATTERN'. Cannot compare for updates."
+            echo "changes_made=false" >> $GITHUB_OUTPUT
+            exit 0
           fi
           echo "Found existing installer: $OLD_INSTALLER"
 
-          echo "Attempting to download latest installer from $DOWNLOAD_URL"
-          # Use curl -LJO. -J tries to use server-provided filename, -O saves locally with that name.
-          # We capture stderr to get the filename curl *actually* uses, as suggested by the server.
-          DOWNLOAD_OUTPUT=$(curl -s -LJO "$DOWNLOAD_URL" --stderr -)
+          echo "Attempting to download latest installer to $TEMP_INSTALLER..."
+          if curl --fail -s -L "$DOWNLOAD_URL" -o "$TEMP_INSTALLER"; then
+            echo "Download successful."
 
-          # Extract the filename curl saved the file as (it prints this to stderr with -J)
-          # Example stderr output: curl: Saved file '/path/to/MuMuInstaller_NewVersion.exe'
-          # NEW_INSTALLER=$(echo "$DOWNLOAD_OUTPUT" | grep -oE "Saved file '[^']+'" | sed -E "s/Saved file '(.*)'/\\1/" | xargs basename)
-          # Simpler approach: Assume download worked and find the *newest* matching file.
-          # This is less robust if multiple downloads happen or other .exe files exist.
-          # A better approach is needed if curl doesn't give filename easily.
-          # Let's try finding the newest *.exe after download.
-          sleep 2 # Give filesystem a moment
-          NEW_INSTALLER=$(ls -t $INSTALLER_PATTERN 2>/dev/null | head -n 1)
-
-          if [ -z "$NEW_INSTALLER" ]; then
-            echo "Error: Download failed or no installer file found after download."
-            echo "Curl output: $DOWNLOAD_OUTPUT"
-            echo "changes_made=false" >> $GITHUB_OUTPUT
-            exit 0 # Exit cleanly, no changes
-          fi
-
-          echo "Downloaded/Found new installer: $NEW_INSTALLER"
-
-          # Compare old and new filenames
-          if [ "$NEW_INSTALLER" != "$OLD_INSTALLER" ] && [ -n "$OLD_INSTALLER" ]; then
-            echo "New version detected ($NEW_INSTALLER vs $OLD_INSTALLER). Updating..."
-            CHANGES_MADE="true"
-
-            echo "Removing old installer: $OLD_INSTALLER"
-            rm -f "$OLD_INSTALLER"
-
-            echo "Updating README.md..."
-            # Use sed to replace the filename in the specific curl command line in README.md
-            # Using a marker or more specific pattern would be safer if README structure changes often.
-            # This assumes the filename is the only part changing on that specific line.
-            # Using '#' as sed delimiter to avoid issues with '/' in the URL/path.
-            sed -i "s#\(curl -L \"https://raw.githubusercontent.com/Jordan231111/mumu-magisk-1click/main/\)$OLD_INSTALLER\(\" -o mumu_installer.exe\)#\\1$NEW_INSTALLER\\2#" "$README_FILE"
-            if [ $? -ne 0 ]; then
-               echo "Error: Failed to update README.md with sed."
-               # Revert potential partial changes? Or just signal no changes?
-               CHANGES_MADE="false"
+            if [ ! -s "$TEMP_INSTALLER" ]; then
+              echo "Error: Downloaded file $TEMP_INSTALLER is empty."
+              rm -f "$TEMP_INSTALLER"
+              echo "changes_made=false" >> $GITHUB_OUTPUT
+              exit 0
             fi
 
-            if [ "$CHANGES_MADE" = "true" ]; then
-              echo "Staging changes..."
-              git config --global user.name 'github-actions[bot]'
-              git config --global user.email 'github-actions[bot]@users.noreply.github.com'
-              git add "$README_FILE"
-              git add "$NEW_INSTALLER" # Add the new installer file
-              # If the old file was properly removed, `git add .` might also work, but being specific is safer.
-              # git add .
+            echo "Calculating checksums..."
+            OLD_SUM=$(sha256sum "$OLD_INSTALLER" | awk '{ print $1 }')
+            NEW_SUM=$(sha256sum "$TEMP_INSTALLER" | awk '{ print $1 }')
 
-              echo "Committing changes..."
-              git commit -m "chore: Update MuMu installer to $NEW_INSTALLER"
+            echo "Old checksum: $OLD_SUM"
+            echo "New checksum: $NEW_SUM"
+
+            if [ "$OLD_SUM" != "$NEW_SUM" ]; then
+              echo "Installer content HAS CHANGED!"
+              # --- PROBLEM --- 
+              # We know the content is new, but we don't have the correct new filename
+              # from the server. We cannot reliably update the README or commit the file
+              # with the correct versioned name.
+              # For now, we will report this and exit without making changes.
+              # Manual intervention or a different strategy to get the filename is needed.
+              echo "Action Required: New installer content detected, but automatic filename update is not possible."
+              echo "Please check the download URL and update the installer file and README.md manually."
+              CHANGES_MADE="false" # Set to false because we cannot complete the update
+              # --- END PROBLEM --- 
+            else
+              echo "Installer content is the same. No update needed."
+              CHANGES_MADE="false"
             fi
-
+            # Clean up the temporary file
+            rm -f "$TEMP_INSTALLER"
           else
-            echo "Installer filename ($NEW_INSTALLER) is the same as the old one ($OLD_INSTALLER) or old installer not found. No update needed."
-            # Clean up the downloaded file if it wasn't needed
-            if [ "$NEW_INSTALLER" != "$OLD_INSTALLER" ]; then
-               echo "Removing duplicate downloaded file: $NEW_INSTALLER"
-               rm -f "$NEW_INSTALLER"
-            fi
+            echo "Error: Download failed (curl exit code $?)."
+            # Clean up potentially partially downloaded file
+            rm -f "$TEMP_INSTALLER"
             CHANGES_MADE="false"
           fi
 
