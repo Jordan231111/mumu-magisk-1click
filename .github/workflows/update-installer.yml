@@ -48,7 +48,8 @@ jobs:
             # Step 1: Make an initial request to follow redirects and get headers/final URL
             $request = [System.Net.WebRequest]::Create($downloadUrl)
             $request.AllowAutoRedirect = $true
-            $request.Method = 'HEAD' # Use HEAD request to avoid downloading body initially
+            # $request.Method = 'HEAD' # Use HEAD request to avoid downloading body initially <-- REVERTING THIS
+            # Default method is GET, which is needed for this server to provide filename
 
             $response = $request.GetResponse()
 
