@@ -36,7 +36,7 @@ Works from PowerShell or Command Prompt:
 cmd.exe /d /c "curl.exe -fL https://raw.githubusercontent.com/Jordan231111/mumu-magisk-1click/main/Setup.bat -o Setup.bat && Setup.bat"
 ```
 
-`Setup.bat` downloads its PowerShell helper automatically if `scripts\MuMuConfig.ps1` is not already next to it.
+For standalone one-command runs, `Setup.bat` refreshes its PowerShell helper automatically so an older `scripts\MuMuConfig.ps1` beside it does not stay stale. When run from a cloned repo, it uses the checked-in helper file.
 
 You do not need to restart Windows. The PowerShell `ExecutionPolicy Bypass` used by `Setup.bat` applies only to this one command process; it does not permanently change your Windows settings.
 

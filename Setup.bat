@@ -37,17 +37,36 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%HELPER%" -Action Setup
 exit /b %errorlevel%
 
 :EnsureHelper
-if exist "%HELPER%" exit /b 0
+if exist "%SCRIPT_DIR%.git" if exist "%HELPER%" exit /b 0
 
-echo PowerShell helper not found locally.
-echo Downloading helper from:
+if exist "%HELPER%" (
+    echo Refreshing PowerShell helper from:
+) else (
+    echo PowerShell helper not found locally.
+    echo Downloading helper from:
+)
 echo %REMOTE_HELPER%
 
 if not exist "%SCRIPT_DIR%scripts" mkdir "%SCRIPT_DIR%scripts" >nul 2>nul
-curl.exe -fL "%REMOTE_HELPER%" -o "%HELPER%"
-if exist "%HELPER%" exit /b 0
+set "TEMP_HELPER=%temp%\mumu-magisk-MuMuConfig-%random%%random%.ps1"
+set "REMOTE_HELPER_REFRESH=%REMOTE_HELPER%?refresh=%random%%random%"
 
-powershell.exe -NoProfile -ExecutionPolicy Bypass -Command "Invoke-WebRequest -UseBasicParsing -Uri '%REMOTE_HELPER%' -OutFile '%HELPER%'"
+curl.exe -fL "%REMOTE_HELPER_REFRESH%" -o "%TEMP_HELPER%"
+if exist "%TEMP_HELPER%" goto ReplaceHelper
+
+powershell.exe -NoProfile -ExecutionPolicy Bypass -Command "Invoke-WebRequest -UseBasicParsing -Uri '%REMOTE_HELPER_REFRESH%' -OutFile '%TEMP_HELPER%'"
+if exist "%TEMP_HELPER%" goto ReplaceHelper
+
+if exist "%HELPER%" (
+    echo Failed to refresh scripts\MuMuConfig.ps1; using existing local copy.
+    exit /b 0
+)
+
+echo Failed to download scripts\MuMuConfig.ps1.
+exit /b 1
+
+:ReplaceHelper
+move /y "%TEMP_HELPER%" "%HELPER%" >nul 2>nul
 if exist "%HELPER%" exit /b 0
 
 echo Failed to download scripts\MuMuConfig.ps1.
