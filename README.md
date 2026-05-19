@@ -123,14 +123,14 @@ No `easebar.com` or `netease.com` network blocking is applied because that can b
 
 ## Bundled Tools
 
-The `Tools/` directory contains utilities that can be useful after setting up Magisk:
+The [`Tools/`](Tools/) directory contains utilities that can be useful after setting up Magisk:
 
-- `app-release.apk`: Kitsune Magisk installer, a Magisk fork commonly used for emulators.
-- `LSPosed-v1.10.1-7180-zygisk-release.zip`: LSPosed framework for Zygisk module support.
-- `NeoZygisk-v1-0.0-233-ce4a658-release.zip`: NeoZygisk for Zygisk-based modules.
-- `HMAL_4.2.0.r104_release_2.zip`: Hide My Applist module.
-- `MT_2.14.5-clone_MOD-V3-PREVIEW.apk`: MT Manager APK/file tool.
-- `core-patch-4.6.apk`: CorePatch helper for Android package/signature workflows.
+- [app-release.apk](Tools/app-release.apk): Kitsune Magisk installer, a Magisk fork commonly used for emulators.
+- [LSPosed-v1.10.1-7180-zygisk-release.zip](Tools/LSPosed-v1.10.1-7180-zygisk-release.zip): LSPosed framework for Zygisk module support.
+- [NeoZygisk-v1-0.0-233-ce4a658-release.zip](Tools/NeoZygisk-v1-0.0-233-ce4a658-release.zip): NeoZygisk for Zygisk-based modules.
+- [HMAL_4.2.0.r104_release_2.zip](Tools/HMAL_4.2.0.r104_release_2.zip): Hide My Applist module.
+- [MT_2.14.5-clone_MOD-V3-PREVIEW.apk](Tools/MT_2.14.5-clone_MOD-V3-PREVIEW.apk): MT Manager APK/file tool.
+- [core-patch-4.6.apk](Tools/core-patch-4.6.apk): CorePatch helper for Android package/signature workflows.
 
 These tools are provided for convenience. Install them manually inside the MuMu instance after Magisk is running.
 
@@ -193,7 +193,9 @@ The tests create temporary Global and Chinese fixtures, write HKCU uninstall-reg
 
 Telegram: https://t.me/+6EreKfc983UzMjgx
 
-## Support The Project
+## ❤️ Support The Project
+
+If this helped you, donations are appreciated and help keep the project maintained:
 
 Ko-fi: https://ko-fi.com/yejordan
 
