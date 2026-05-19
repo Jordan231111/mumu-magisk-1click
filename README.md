@@ -126,7 +126,7 @@ No `easebar.com` or `netease.com` network blocking is applied because that can b
 The [`Tools/`](Tools/) directory contains utilities that can be useful after setting up Magisk:
 
 - [app-release.apk](Tools/app-release.apk): Kitsune Magisk installer, a Magisk fork commonly used for emulators.
-- [Vector-v2.0-3021-Release.zip](Tools/Vector-v2.0-3021-Release.zip): Vector framework for Zygisk module support ([LSPosed is now Vector](https://github.com/LSPosed/LSPosed)).
+- [Vector-v2.0-3021-Release.zip](Tools/Vector-v2.0-3021-Release.zip): [Vector](https://github.com/JingMatrix/Vector) framework for Zygisk module support (successor to LSPosed).
 - [NeoZygisk-v2.3-282-8b12252-release.zip](Tools/NeoZygisk-v2.3-282-8b12252-release.zip): NeoZygisk for Zygisk-based modules.
 - [HMAL_4.2.0.r104_release_2.zip](Tools/HMAL_4.2.0.r104_release_2.zip): Hide My Applist module.
 - [MT_2.14.5-clone_MOD-V3-PREVIEW.apk](Tools/MT_2.14.5-clone_MOD-V3-PREVIEW.apk): MT Manager APK/file tool.
@@ -203,7 +203,7 @@ Ko-fi: https://ko-fi.com/yejordan
 
 - Magisk Kitsune: https://github.com/HuskyDG/Magisk
 - Magisk upstream: https://github.com/topjohnwu/Magisk
-- Vector (formerly LSPosed): https://github.com/LSPosed/LSPosed
+- Vector (successor to LSPosed): https://github.com/JingMatrix/Vector
 - CorePatch: https://github.com/LSPosed/CorePatch
 - MuMu Player: https://www.mumuplayer.com/
 
