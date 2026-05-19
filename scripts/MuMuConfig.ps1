@@ -7,21 +7,29 @@ $script:Options = @{
     NoKill       = $false
     InstallRoot  = $null
     RegistryRoot = $null
+    UserDataRoot = $null
+    ClassesRoot  = $null
     OutputPath   = $null
     MetadataPath = $null
     Json         = $false
 }
 
+$script:AssociationBackupValueName = 'mumu_magisk_1click_backup_default'
+
 $script:Editions = @{
     global = [pscustomobject]@{
-        Name       = 'Global'
-        KeyName    = 'MuMuPlayerGlobal-12.0'
-        FolderName = 'MuMuPlayerGlobal-12.0'
+        Name             = 'Global'
+        KeyName          = 'MuMuPlayerGlobal-12.0'
+        FolderName       = 'MuMuPlayerGlobal-12.0'
+        UserConfigFolder = 'MuMuPlayerGlobal'
+        ClassPrefix      = 'MuMuPlayerGlobal'
     }
     chinese = [pscustomobject]@{
-        Name       = 'Chinese'
-        KeyName    = 'MuMuPlayer-12.0'
-        FolderName = 'MuMuPlayer-12.0'
+        Name             = 'Chinese'
+        KeyName          = 'MuMuPlayer-12.0'
+        FolderName       = 'MuMuPlayer-12.0'
+        UserConfigFolder = 'MuMuPlayer'
+        ClassPrefix      = 'MuMuPlayer'
     }
 }
 
@@ -62,6 +70,18 @@ function Read-Arguments {
                 if ($i + 1 -ge $args.Count) { throw 'Missing value for registry-root.' }
                 $i++
                 $script:Options.RegistryRoot = [string]$args[$i]
+                continue
+            }
+            '^-{1,2}user-data-root$' {
+                if ($i + 1 -ge $args.Count) { throw 'Missing value for user-data-root.' }
+                $i++
+                $script:Options.UserDataRoot = [string]$args[$i]
+                continue
+            }
+            '^-{1,2}classes-root$' {
+                if ($i + 1 -ge $args.Count) { throw 'Missing value for classes-root.' }
+                $i++
+                $script:Options.ClassesRoot = [string]$args[$i]
                 continue
             }
             '^-{1,2}output$' {
@@ -143,6 +163,26 @@ function Get-NeteaseRoots {
         'Registry::HKEY_LOCAL_MACHINE\SOFTWARE\Netease',
         'Registry::HKEY_LOCAL_MACHINE\SOFTWARE\WOW6432Node\Netease'
     )
+}
+
+function Get-UserDataRoot {
+    if ($script:Options.UserDataRoot) {
+        return $script:Options.UserDataRoot
+    }
+
+    if ([string]::IsNullOrWhiteSpace($env:APPDATA)) {
+        return $null
+    }
+
+    return Join-ChildPath -Path $env:APPDATA -Child 'Netease'
+}
+
+function Get-ClassesRoot {
+    if ($script:Options.ClassesRoot) {
+        return $script:Options.ClassesRoot
+    }
+
+    return 'Registry::HKEY_CURRENT_USER\Software\Classes'
 }
 
 function Join-ChildPath {
@@ -706,6 +746,35 @@ function Add-JsonPatchResult {
     }
 }
 
+function Add-CustomerPrivacyChanges {
+    param(
+        $Json,
+        [System.Collections.Generic.List[object]]$Changes
+    )
+
+    $found = 0
+    $targets = @(
+        [pscustomobject]@{ Path = @('customer', 'apk_associate'); Name = 'customer.apk_associate'; Value = 'false' },
+        [pscustomobject]@{ Path = @('customer', 'app_keptlive'); Name = 'customer.app_keptlive'; Value = 'false' },
+        [pscustomobject]@{ Path = @('customer', 'run_limitation'); Name = 'customer.run_limitation'; Value = 'false' },
+        [pscustomobject]@{ Path = @('setting', 'other_setting', 'apk_association'); Name = 'setting.other_setting.apk_association'; Value = '0' },
+        [pscustomobject]@{ Path = @('setting', 'other_setting', 'app_keptlive'); Name = 'setting.other_setting.app_keptlive'; Value = '0' },
+        [pscustomobject]@{ Path = @('setting', 'other_setting', 'run_limitation'); Name = 'setting.other_setting.run_limitation'; Value = '0' }
+    )
+
+    foreach ($target in $targets) {
+        $result = Set-JsonValueIfExists -Root $Json -Path $target.Path -Value $target.Value
+        if ($result.found) {
+            $found++
+            if ($result.changed) {
+                [void]$Changes.Add((New-ChangeObject -Path $target.Name -Result $result))
+            }
+        }
+    }
+
+    return $found
+}
+
 function Patch-CustomerConfig {
     param($Json)
 
@@ -720,20 +789,54 @@ function Patch-CustomerConfig {
         Set-JsonValueIfExists -Root $Json -Path @('setting', 'disk_share', 'mode', 'choose') -Value 'disk_share.mode.writable'
     )
 
-    $optionalPrivacyTargets = @(
-        [pscustomobject]@{ Path = @('customer', 'apk_associate'); Name = 'customer.apk_associate'; Value = 'false' },
-        [pscustomobject]@{ Path = @('customer', 'app_keptlive'); Name = 'customer.app_keptlive'; Value = 'false' },
-        [pscustomobject]@{ Path = @('customer', 'run_limitation'); Name = 'customer.run_limitation'; Value = 'false' },
-        [pscustomobject]@{ Path = @('setting', 'other_setting', 'apk_association'); Name = 'setting.other_setting.apk_association'; Value = '0' },
-        [pscustomobject]@{ Path = @('setting', 'other_setting', 'app_keptlive'); Name = 'setting.other_setting.app_keptlive'; Value = '0' },
-        [pscustomobject]@{ Path = @('setting', 'other_setting', 'run_limitation'); Name = 'setting.other_setting.run_limitation'; Value = '0' }
+    [void](Add-CustomerPrivacyChanges -Json $Json -Changes $changes)
+
+    return [pscustomobject]@{
+        changes       = @($changes.ToArray())
+        missing_paths = @($missing.ToArray())
+    }
+}
+
+function Patch-CustomerPrivacyConfig {
+    param($Json)
+
+    $changes = New-Object System.Collections.Generic.List[object]
+    $missing = New-Object System.Collections.Generic.List[string]
+    $found = Add-CustomerPrivacyChanges -Json $Json -Changes $changes
+    if ($found -eq 0) {
+        [void]$missing.Add('customer/settings privacy keys')
+    }
+
+    return [pscustomobject]@{
+        changes       = @($changes.ToArray())
+        missing_paths = @($missing.ToArray())
+    }
+}
+
+function Patch-NxMainConfig {
+    param($Json)
+
+    $changes = New-Object System.Collections.Generic.List[object]
+    $missing = New-Object System.Collections.Generic.List[string]
+    $found = 0
+    $targets = @(
+        [pscustomobject]@{ Path = @('nxmain', 'setting', 'apk_association'); Name = 'nxmain.setting.apk_association'; Value = '0' },
+        [pscustomobject]@{ Path = @('setting', 'apk_association'); Name = 'setting.apk_association'; Value = '0' },
+        [pscustomobject]@{ Path = @('setting', 'other_setting', 'apk_association'); Name = 'setting.other_setting.apk_association'; Value = '0' }
     )
 
-    foreach ($target in $optionalPrivacyTargets) {
+    foreach ($target in $targets) {
         $result = Set-JsonValueIfExists -Root $Json -Path $target.Path -Value $target.Value
-        if ($result.found -and $result.changed) {
-            [void]$changes.Add((New-ChangeObject -Path $target.Name -Result $result))
+        if ($result.found) {
+            $found++
+            if ($result.changed) {
+                [void]$changes.Add((New-ChangeObject -Path $target.Name -Result $result))
+            }
         }
+    }
+
+    if ($found -eq 0) {
+        [void]$missing.Add('nxmain.setting.apk_association or setting.apk_association')
     }
 
     return [pscustomobject]@{
@@ -818,16 +921,270 @@ function Get-InstallLevelConfigFiles {
     param([string]$InstallRoot)
 
     $files = New-Object System.Collections.Generic.List[string]
-    foreach ($relative in @('configs', 'nx_device', 'nx_main')) {
+    foreach ($relative in @('configs', 'nx_device\12.0\configs', 'nx_main\configs')) {
         $path = Join-ChildPath -Path $InstallRoot -Child $relative
         if (-not (Test-Path -LiteralPath $path -PathType Container)) { continue }
 
-        foreach ($file in (Get-ChildItem -LiteralPath $path -Recurse -File -Include '*.json', '*.ini' -ErrorAction SilentlyContinue)) {
+        foreach ($file in (Get-ChildItem -LiteralPath $path -File -ErrorAction SilentlyContinue | Where-Object { $_.Extension -in @('.json', '.ini') })) {
             [void]$files.Add((Format-RelativePath -BasePath $InstallRoot -Path $file.FullName))
         }
     }
 
     return $files
+}
+
+function Get-UserConfigTargets {
+    param($Install)
+
+    $userDataRoot = Get-UserDataRoot
+    if ([string]::IsNullOrWhiteSpace($userDataRoot)) {
+        return @()
+    }
+
+    $editionInfo = $script:Editions[$Install.edition]
+    $configRoot = Join-ChildPath -Path (Join-ChildPath -Path $userDataRoot -Child $editionInfo.UserConfigFolder) -Child 'configs'
+
+    return @(
+        [pscustomobject]@{
+            Path  = Join-ChildPath -Path $configRoot -Child 'nx_main.json'
+            Patch = ${function:Patch-NxMainConfig}
+        },
+        [pscustomobject]@{
+            Path  = Join-ChildPath -Path (Join-ChildPath -Path $configRoot -Child 'multi-advanced') -Child 'customer_config.json'
+            Patch = ${function:Patch-CustomerPrivacyConfig}
+        },
+        [pscustomobject]@{
+            Path  = Join-ChildPath -Path (Join-ChildPath -Path $configRoot -Child 'multi-batch') -Child 'customer_config.json'
+            Patch = ${function:Patch-CustomerPrivacyConfig}
+        }
+    )
+}
+
+function Invoke-UserConfigPatches {
+    param($Install)
+
+    $fileResults = New-Object System.Collections.Generic.List[object]
+    $filesChanged = 0
+    $filesWouldChange = 0
+    $userDataRoot = Get-UserDataRoot
+
+    foreach ($target in (Get-UserConfigTargets -Install $Install)) {
+        $result = Invoke-JsonPatchFile -Path $target.Path -Patch $target.Patch
+        [void]$fileResults.Add($result)
+        if (-not $result.exists) { continue }
+
+        $relative = $target.Path
+        if (-not [string]::IsNullOrWhiteSpace($userDataRoot)) {
+            $relative = Format-RelativePath -BasePath $userDataRoot -Path $target.Path
+        }
+
+        if ($result.would_change) {
+            $filesWouldChange++
+            if (-not $script:Options.DryRun) { $filesChanged++ }
+            $verb = 'Updated'
+            if ($script:Options.DryRun) { $verb = 'Would update' }
+            $paths = ($result.changes | ForEach-Object { $_.path }) -join ', '
+            Write-Log "[User config] $verb ${relative}: $paths"
+        } elseif ($result.missing_paths.Count -eq 0) {
+            Write-Log "[User config] $relative already in desired state"
+        }
+    }
+
+    return [pscustomobject]@{
+        files_changed      = $filesChanged
+        files_would_change = $filesWouldChange
+        files              = $fileResults
+    }
+}
+
+function Restore-UserConfigBackups {
+    param($Install)
+
+    $restored = New-Object System.Collections.Generic.List[string]
+    $userDataRoot = Get-UserDataRoot
+
+    foreach ($target in (Get-UserConfigTargets -Install $Install)) {
+        $backup = "$($target.Path).bak"
+        if (-not (Test-Path -LiteralPath $backup -PathType Leaf)) { continue }
+
+        if (-not $script:Options.DryRun) {
+            Copy-Item -LiteralPath $backup -Destination $target.Path -Force
+        }
+
+        $relative = $target.Path
+        if (-not [string]::IsNullOrWhiteSpace($userDataRoot)) {
+            $relative = Format-RelativePath -BasePath $userDataRoot -Path $target.Path
+        }
+        [void]$restored.Add($relative)
+        $verb = 'Restored'
+        if ($script:Options.DryRun) { $verb = 'Would restore' }
+        Write-Log "[User config] $verb $relative"
+    }
+
+    return $restored
+}
+
+function Get-RegistryDefaultValue {
+    param([string]$Path)
+
+    if (-not (Test-Path -LiteralPath $Path)) {
+        return $null
+    }
+
+    return (Get-Item -LiteralPath $Path).GetValue('')
+}
+
+function Set-RegistryDefaultValue {
+    param(
+        [string]$Path,
+        [string]$Value
+    )
+
+    Set-ItemProperty -LiteralPath $Path -Name '(default)' -Value $Value
+}
+
+function Test-MuMuAssociationValue {
+    param(
+        [string]$Value,
+        $Install
+    )
+
+    if ([string]::IsNullOrWhiteSpace($Value)) {
+        return $false
+    }
+
+    $prefix = [regex]::Escape($script:Editions[$Install.edition].ClassPrefix)
+    return ($Value -match "^$prefix\.(apk|xapk|apks)$")
+}
+
+function Test-AssociationCommandUnderInstall {
+    param(
+        [string]$ClassesRoot,
+        [string]$ClassName,
+        $Install
+    )
+
+    if ([string]::IsNullOrWhiteSpace($ClassName)) {
+        return $false
+    }
+
+    $commandPath = Join-ChildPath -Path (Join-ChildPath -Path $ClassesRoot -Child $ClassName) -Child 'shell\open\command'
+    if (-not (Test-Path -LiteralPath $commandPath)) {
+        return $false
+    }
+
+    $command = [string](Get-RegistryDefaultValue -Path $commandPath)
+    $rootPrefix = [System.IO.Path]::GetFullPath($Install.install_root).TrimEnd('\') + '\'
+    return (Test-PathIsUnderRoot -Path ($command -replace '^"', '') -RootPrefixes @($rootPrefix))
+}
+
+function Invoke-ApkAssociationPatch {
+    param($Install)
+
+    $classesRoot = Get-ClassesRoot
+    $entries = New-Object System.Collections.Generic.List[object]
+    $changed = 0
+    $wouldChange = 0
+
+    foreach ($extension in @('.apk', '.xapk', '.apks')) {
+        $extensionKey = Join-ChildPath -Path $classesRoot -Child $extension
+        $exists = Test-Path -LiteralPath $extensionKey
+        $oldValue = $null
+        $newValue = $null
+        $entryChanged = $false
+        $entryWouldChange = $false
+
+        if ($exists) {
+            $key = Get-Item -LiteralPath $extensionKey
+            $oldValue = [string]$key.GetValue('')
+            $matchesMuMu = (Test-MuMuAssociationValue -Value $oldValue -Install $Install) -or
+                (Test-AssociationCommandUnderInstall -ClassesRoot $classesRoot -ClassName $oldValue -Install $Install)
+
+            if ($matchesMuMu) {
+                $entryWouldChange = $true
+                $wouldChange++
+                $newValue = ''
+
+                if (-not $script:Options.DryRun) {
+                    if ($null -eq $key.GetValue($script:AssociationBackupValueName, $null)) {
+                        Set-ItemProperty -LiteralPath $extensionKey -Name $script:AssociationBackupValueName -Value $oldValue
+                    }
+                    Set-RegistryDefaultValue -Path $extensionKey -Value ''
+                    $entryChanged = $true
+                    $changed++
+                }
+
+                $verb = 'Cleared'
+                if ($script:Options.DryRun) { $verb = 'Would clear' }
+                Write-Log "[Windows association] $verb $extension from $oldValue"
+            }
+        }
+
+        [void]$entries.Add([pscustomobject]@{
+            extension    = $extension
+            key          = $extensionKey
+            exists       = $exists
+            old_value    = $oldValue
+            new_value    = $newValue
+            changed      = $entryChanged
+            would_change = $entryWouldChange
+        })
+    }
+
+    return [pscustomobject]@{
+        classes_root = $classesRoot
+        changed      = $changed
+        would_change = $wouldChange
+        entries      = $entries
+    }
+}
+
+function Restore-ApkAssociation {
+    param($Install)
+
+    $classesRoot = Get-ClassesRoot
+    $entries = New-Object System.Collections.Generic.List[object]
+    $restored = 0
+
+    foreach ($extension in @('.apk', '.xapk', '.apks')) {
+        $extensionKey = Join-ChildPath -Path $classesRoot -Child $extension
+        $exists = Test-Path -LiteralPath $extensionKey
+        $backupValue = $null
+        $entryRestored = $false
+
+        if ($exists) {
+            $key = Get-Item -LiteralPath $extensionKey
+            $backupValue = [string]$key.GetValue($script:AssociationBackupValueName, $null)
+
+            if ((Test-MuMuAssociationValue -Value $backupValue -Install $Install) -or
+                (Test-AssociationCommandUnderInstall -ClassesRoot $classesRoot -ClassName $backupValue -Install $Install)) {
+                if (-not $script:Options.DryRun) {
+                    Set-RegistryDefaultValue -Path $extensionKey -Value $backupValue
+                    Remove-ItemProperty -LiteralPath $extensionKey -Name $script:AssociationBackupValueName -ErrorAction SilentlyContinue
+                    $entryRestored = $true
+                }
+                $restored++
+                $verb = 'Restored'
+                if ($script:Options.DryRun) { $verb = 'Would restore' }
+                Write-Log "[Windows association] $verb $extension to $backupValue"
+            }
+        }
+
+        [void]$entries.Add([pscustomobject]@{
+            extension      = $extension
+            key            = $extensionKey
+            exists         = $exists
+            backup_value   = $backupValue
+            restored       = $entryRestored
+            would_restore  = (-not [string]::IsNullOrWhiteSpace($backupValue))
+        })
+    }
+
+    return [pscustomobject]@{
+        classes_root = $classesRoot
+        restored     = $restored
+        entries      = $entries
+    }
 }
 
 function Invoke-SetupInstall {
@@ -842,6 +1199,8 @@ function Invoke-SetupInstall {
     $instancesProcessed = 0
     $filesChanged = 0
     $filesWouldChange = 0
+    $registryChanged = 0
+    $registryWouldChange = 0
 
     foreach ($instance in (Get-InstanceDirectories -VmsPath $Install.vms_path)) {
         $configsPath = Join-ChildPath -Path $instance.FullName -Child 'configs'
@@ -894,10 +1253,15 @@ function Invoke-SetupInstall {
         })
     }
 
+    $userConfigResults = Invoke-UserConfigPatches -Install $Install
+    $filesChanged += $userConfigResults.files_changed
+    $filesWouldChange += $userConfigResults.files_would_change
+
+    $associationResults = Invoke-ApkAssociationPatch -Install $Install
+    $registryChanged += $associationResults.changed
+    $registryWouldChange += $associationResults.would_change
+
     $installLevelConfigs = @(Get-InstallLevelConfigFiles -InstallRoot $Install.install_root)
-    if ($installLevelConfigs.Count -gt 0) {
-        Write-Log "Install-level JSON/INI candidates found but not modified: $($installLevelConfigs.Count)"
-    }
 
     return [pscustomobject]@{
         edition                    = $Install.edition
@@ -905,8 +1269,12 @@ function Invoke-SetupInstall {
         instances_processed        = $instancesProcessed
         files_changed              = $filesChanged
         files_would_change         = $filesWouldChange
+        registry_changed           = $registryChanged
+        registry_would_change      = $registryWouldChange
         dry_run                    = $script:Options.DryRun
         install_level_config_files = $installLevelConfigs
+        user_configs               = $userConfigResults.files
+        apk_associations           = $associationResults
         instances                  = $instanceResults
     }
 }
@@ -918,6 +1286,7 @@ function Invoke-RestoreInstall {
 
     $instancesRestored = 0
     $filesRestored = 0
+    $registryRestored = 0
     $instanceResults = New-Object System.Collections.Generic.List[object]
 
     foreach ($instance in (Get-InstanceDirectories -VmsPath $Install.vms_path)) {
@@ -949,12 +1318,21 @@ function Invoke-RestoreInstall {
         })
     }
 
+    $userRestoredFiles = @(Restore-UserConfigBackups -Install $Install)
+    $filesRestored += $userRestoredFiles.Count
+
+    $associationResult = Restore-ApkAssociation -Install $Install
+    $registryRestored += $associationResult.restored
+
     return [pscustomobject]@{
         edition            = $Install.edition
         install_root       = $Install.install_root
         instances_restored = $instancesRestored
         files_restored     = $filesRestored
+        registry_restored  = $registryRestored
         dry_run            = $script:Options.DryRun
+        user_restored_files = $userRestoredFiles
+        apk_associations   = $associationResult
         instances          = $instanceResults
     }
 }
@@ -1217,6 +1595,8 @@ Options:
   --no-kill                           Do not stop MuMu processes/services.
   --install-root PATH                 Use a specific install root, then derive PATH\vms.
   --registry-root PATH                Test hook for an alternate uninstall registry root.
+  --user-data-root PATH               Test hook for alternate %APPDATA%\Netease root.
+  --classes-root PATH                 Test hook for alternate HKCU Software\Classes root.
   --output PATH                       Installer output path for DownloadInstaller.
   --metadata PATH                     Metadata output path for DownloadInstaller.
   --json                              Emit machine-readable JSON for the selected action.
@@ -1320,10 +1700,12 @@ function Invoke-Main {
             } else {
                 $changed = @($results | Measure-Object -Property files_changed -Sum).Sum
                 $wouldChange = @($results | Measure-Object -Property files_would_change -Sum).Sum
+                $registryChanged = @($results | Measure-Object -Property registry_changed -Sum).Sum
+                $registryWouldChange = @($results | Measure-Object -Property registry_would_change -Sum).Sum
                 if ($script:Options.DryRun) {
-                    Write-Host "Done. Files that would change: $wouldChange"
+                    Write-Host "Done. Files that would change: $wouldChange; registry associations that would change: $registryWouldChange"
                 } else {
-                    Write-Host "Done. Files changed: $changed"
+                    Write-Host "Done. Files changed: $changed; registry associations changed: $registryChanged"
                 }
             }
             return 0
@@ -1341,12 +1723,13 @@ function Invoke-Main {
 
             $results = @($installs | ForEach-Object { Invoke-RestoreInstall -Install $_ })
             $restored = @($results | Measure-Object -Property files_restored -Sum).Sum
+            $registryRestored = @($results | Measure-Object -Property registry_restored -Sum).Sum
             if ($script:Options.Json) {
                 Write-JsonResult $results
             } else {
-                Write-Host "Done. Files restored: $restored"
+                Write-Host "Done. Files restored: $restored; registry associations restored: $registryRestored"
             }
-            if ($restored -lt 1) { return 1 }
+            if (($restored + $registryRestored) -lt 1) { return 1 }
             return 0
         }
         default {

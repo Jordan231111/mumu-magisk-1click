@@ -60,6 +60,8 @@ Setup.bat --edition all
 - Finds MuMu installs from the Windows uninstall registry first, including custom `InstallLocation` paths.
 - Falls back to known `Program Files\Netease` paths only if registry discovery fails.
 - Patches every non-base instance under `{InstallRoot}\vms\*\configs`.
+- Updates MuMu's user-level APK association toggle under `%APPDATA%\Netease\MuMuPlayerGlobal\configs\nx_main.json` or `%APPDATA%\Netease\MuMuPlayer\configs\nx_main.json` when that file exists.
+- Clears current-user `.apk`, `.xapk`, and `.apks` Windows file associations only when they currently point to MuMu, and stores a restore value first.
 - Creates `.bak` backups before the first write and restores from those backups later.
 - Uses PowerShell JSON parsing instead of line-by-line batch text replacement.
 - Does not add hosts-file rules, firewall rules, startup entries, services, scheduled tasks, or silent installer execution.
@@ -82,7 +84,7 @@ Run this from PowerShell or Command Prompt:
 cmd.exe /d /c "curl.exe -fL https://raw.githubusercontent.com/Jordan231111/mumu-magisk-1click/main/RestoreMuMuConfig.bat -o RestoreMuMuConfig.bat && RestoreMuMuConfig.bat"
 ```
 
-Restore copies every `*.bak` file under each non-base instance `configs` directory back to its original filename.
+Restore copies every `*.bak` file created by setup back to its original filename and restores the current-user APK file associations that setup cleared.
 
 ## Patched Files
 
@@ -94,10 +96,11 @@ Per instance, excluding folders ending in `-base`:
 | `customer_config.json` | `setting.disk_share.mode.choose` -> `"disk_share.mode.writable"` |
 | `vm_config.json` | `system_vdi.sharable` or `vm.system_vdi.sharable` -> `"Writable"` |
 | `shell_config.json` | `player.uu_remote.should_show` -> `"false"` when present |
+| `%APPDATA%\Netease\...\configs\nx_main.json` | `nxmain.setting.apk_association` -> `"0"` when present |
 
 ## Privacy Tweaks
 
-The setup only changes privacy/debloat keys that already exist in the JSON. It does not create guessed keys.
+The setup only changes privacy/debloat keys that already exist in MuMu's JSON. It does not create guessed JSON keys.
 
 Currently documented optional keys:
 
@@ -109,7 +112,10 @@ Currently documented optional keys:
 | `customer_config.json` | `setting.other_setting.apk_association` | `"0"` |
 | `customer_config.json` | `setting.other_setting.app_keptlive` | `"0"` |
 | `customer_config.json` | `setting.other_setting.run_limitation` | `"0"` |
+| `%APPDATA%\Netease\...\configs\nx_main.json` | `nxmain.setting.apk_association` | `"0"` |
 | `shell_config.json` | `player.uu_remote.should_show` | `"false"` |
+
+For the Windows "Associate APK files" toggle, MuMu also writes current-user file associations. Setup clears `.apk`, `.xapk`, and `.apks` only if they currently point to MuMu classes such as `MuMuPlayerGlobal.apk`, then stores the previous value for restore.
 
 `run_limitation` is an existing MuMu config toggle. The script keeps it disabled when the key is present, but the exact MuMu behavior is not officially documented.
 
