@@ -15,20 +15,21 @@ set "params="
 
 :BuildArgs
 if "%~1"=="" goto RunElevated
-set params=%params% ""%~1""
+set params=%params% "%~1"
 shift /1
 goto BuildArgs
 
 :RunElevated
 set "VBS=%temp%\mumu-magisk-restore-uac.vbs"
 > "%VBS%" echo Set UAC = CreateObject^("Shell.Application"^)
->> "%VBS%" echo UAC.ShellExecute "%~f0", "%params%", "", "runas", 1
+>> "%VBS%" echo UAC.ShellExecute "%ComSpec%", "/k ""%~f0""%params%", "", "runas", 1
 cscript //nologo "%VBS%" >nul 2>nul
 del "%VBS%" >nul 2>nul
 exit /b
 
 :GotAdmin
 cd /d "%SCRIPT_DIR%"
+echo Running MuMu restore from: %CD%
 call :EnsureHelper
 if errorlevel 1 exit /b 1
 
@@ -43,7 +44,7 @@ echo Downloading helper from:
 echo %REMOTE_HELPER%
 
 if not exist "%SCRIPT_DIR%scripts" mkdir "%SCRIPT_DIR%scripts" >nul 2>nul
-curl.exe -fL "%REMOTE_HELPER%" -o "%HELPER%" >nul 2>nul
+curl.exe -fL "%REMOTE_HELPER%" -o "%HELPER%"
 if exist "%HELPER%" exit /b 0
 
 powershell.exe -NoProfile -ExecutionPolicy Bypass -Command "Invoke-WebRequest -UseBasicParsing -Uri '%REMOTE_HELPER%' -OutFile '%HELPER%'"

@@ -33,8 +33,10 @@ This tool prepares MuMu root mode and writable system settings. It does not inst
 Works from PowerShell or Command Prompt:
 
 ```cmd
-cmd.exe /d /c "curl.exe -fL https://raw.githubusercontent.com/Jordan231111/mumu-magisk-1click/main/Setup.bat -o Setup.bat && if not exist scripts mkdir scripts && curl.exe -fL https://raw.githubusercontent.com/Jordan231111/mumu-magisk-1click/main/scripts/MuMuConfig.ps1 -o scripts\MuMuConfig.ps1 && Setup.bat"
+cmd.exe /d /c "curl.exe -fL https://raw.githubusercontent.com/Jordan231111/mumu-magisk-1click/main/Setup.bat -o Setup.bat && Setup.bat"
 ```
+
+`Setup.bat` downloads its PowerShell helper automatically if `scripts\MuMuConfig.ps1` is not already next to it.
 
 You do not need to restart Windows. The PowerShell `ExecutionPolicy Bypass` used by `Setup.bat` applies only to this one command process; it does not permanently change your Windows settings.
 
@@ -77,7 +79,7 @@ This project is no longer pinned to Chinese V4.1.24.3688. The scripts target the
 Run this from PowerShell or Command Prompt:
 
 ```cmd
-cmd.exe /d /c "curl.exe -fL https://raw.githubusercontent.com/Jordan231111/mumu-magisk-1click/main/RestoreMuMuConfig.bat -o RestoreMuMuConfig.bat && if not exist scripts mkdir scripts && curl.exe -fL https://raw.githubusercontent.com/Jordan231111/mumu-magisk-1click/main/scripts/MuMuConfig.ps1 -o scripts\MuMuConfig.ps1 && RestoreMuMuConfig.bat"
+cmd.exe /d /c "curl.exe -fL https://raw.githubusercontent.com/Jordan231111/mumu-magisk-1click/main/RestoreMuMuConfig.bat -o RestoreMuMuConfig.bat && RestoreMuMuConfig.bat"
 ```
 
 Restore copies every `*.bak` file under each non-base instance `configs` directory back to its original filename.
