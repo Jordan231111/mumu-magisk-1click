@@ -414,7 +414,34 @@ function Find-MuMuInstall {
     return @(Select-UniqueInstalls -Candidates (Get-InstallCandidatesForEdition -Edition $Edition))
 }
 
+function Test-PathIsUnderRoot {
+    param(
+        [string]$Path,
+        [string[]]$RootPrefixes
+    )
+
+    if ([string]::IsNullOrWhiteSpace($Path)) {
+        return $false
+    }
+
+    foreach ($rootPrefix in $RootPrefixes) {
+        if ($Path.StartsWith($rootPrefix, [System.StringComparison]::OrdinalIgnoreCase)) {
+            return $true
+        }
+    }
+
+    return $false
+}
+
 function Stop-MuMuProcesses {
+    param([object[]]$Installs = @())
+
+    $rootPrefixes = @(
+        $Installs |
+            Where-Object { $_ -and $_.install_root } |
+            ForEach-Object { [System.IO.Path]::GetFullPath($_.install_root).TrimEnd('\') + '\' }
+    )
+
     $serviceNames = @(
         'MuMuPlayerService',
         'MuMuVMMSVC',
@@ -426,7 +453,21 @@ function Stop-MuMuProcesses {
         'NemuService'
     )
 
+    $servicesToStop = @{}
     foreach ($serviceName in $serviceNames) {
+        $service = Get-Service -Name $serviceName -ErrorAction SilentlyContinue
+        if ($service) {
+            $servicesToStop[$service.Name] = $true
+        }
+    }
+
+    if ($rootPrefixes.Count -gt 0) {
+        Get-CimInstance Win32_Service -ErrorAction SilentlyContinue |
+            Where-Object { Test-PathIsUnderRoot -Path ($_.PathName -replace '^"', '') -RootPrefixes $rootPrefixes } |
+            ForEach-Object { $servicesToStop[$_.Name] = $true }
+    }
+
+    foreach ($serviceName in $servicesToStop.Keys) {
         $service = Get-Service -Name $serviceName -ErrorAction SilentlyContinue
         if ($service -and $service.Status -ne 'Stopped') {
             Write-Log "Stopping service: $serviceName"
@@ -459,12 +500,27 @@ function Stop-MuMuProcesses {
         'adb_server'
     )
 
+    $stoppedPids = @{}
     foreach ($processName in $processNames) {
         $processes = Get-Process -Name $processName -ErrorAction SilentlyContinue
         foreach ($process in $processes) {
+            if ($stoppedPids.ContainsKey($process.Id)) { continue }
             Write-Log "Stopping process: $($process.ProcessName) ($($process.Id))"
             Stop-Process -Id $process.Id -Force -ErrorAction SilentlyContinue
+            $stoppedPids[$process.Id] = $true
         }
+    }
+
+    if ($rootPrefixes.Count -gt 0) {
+        Get-CimInstance Win32_Process -ErrorAction SilentlyContinue |
+            Where-Object { Test-PathIsUnderRoot -Path $_.ExecutablePath -RootPrefixes $rootPrefixes } |
+            ForEach-Object {
+                $pid = [int]$_.ProcessId
+                if ($stoppedPids.ContainsKey($pid)) { return }
+                Write-Log "Stopping MuMu install process: $($_.Name) ($pid)"
+                Stop-Process -Id $pid -Force -ErrorAction SilentlyContinue
+                $stoppedPids[$pid] = $true
+            }
     }
 }
 
@@ -1251,7 +1307,7 @@ function Invoke-Main {
 
             if (-not $script:Options.NoKill) {
                 Write-Log 'Stopping MuMu processes and services...'
-                Stop-MuMuProcesses
+                Stop-MuMuProcesses -Installs $installs
             }
 
             $results = @($installs | ForEach-Object { Invoke-SetupInstall -Install $_ })
@@ -1282,7 +1338,7 @@ function Invoke-Main {
 
             if (-not $script:Options.NoKill) {
                 Write-Log 'Stopping MuMu processes and services...'
-                Stop-MuMuProcesses
+                Stop-MuMuProcesses -Installs $installs
             }
 
             $results = @($installs | ForEach-Object { Invoke-RestoreInstall -Install $_ })
