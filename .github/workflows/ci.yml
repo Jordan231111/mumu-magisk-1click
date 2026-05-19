@@ -91,32 +91,63 @@ jobs:
           powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\tests\Smoke.Tests.ps1
 
   update-installer-pr:
-    name: Update installer PR
+    name: Update installer branch
     runs-on: windows-latest
     if: ${{ github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.update_installer == true) }}
     permissions:
       contents: write
-      pull-requests: write
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Download current Global installer
+      - name: Check for installer update
+        id: installer
         shell: powershell
         run: |
-          powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\MuMuConfig.ps1 -Action DownloadInstaller --output .\MuMuInstaller_Global.exe --metadata .\installer-url.txt
+          $tempExe = Join-Path $env:RUNNER_TEMP 'MuMuInstaller_Global.exe'
+          $tempMetadata = Join-Path $env:RUNNER_TEMP 'installer-url.txt'
+          $json = & powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\MuMuConfig.ps1 -Action DownloadInstaller --output $tempExe --metadata $tempMetadata --json
+          if ($LASTEXITCODE -ne 0) {
+            throw "DownloadInstaller failed: $json"
+          }
 
-      - name: Open PR if installer changed
-        uses: peter-evans/create-pull-request@v6
-        with:
-          commit-message: Update Global MuMu installer
-          branch: automation/update-global-mumu-installer
-          title: Update Global MuMu installer
-          body: |
-            Updates the committed Global MuMu installer using the official `api.mumuplayer.com` download flow.
+          $download = $json | ConvertFrom-Json
+          $committedMd5 = ''
+          if (Test-Path -LiteralPath .\MuMuInstaller_Global.exe -PathType Leaf) {
+            $committedMd5 = (Get-FileHash -LiteralPath .\MuMuInstaller_Global.exe -Algorithm MD5).Hash.ToLowerInvariant()
+          }
 
-            CI verifies the CDN redirect, content length, and MD5 before accepting the committed EXE.
-          add-paths: |
-            MuMuInstaller_Global.exe
-            installer-url.txt
+          if ($download.md5 -eq $committedMd5) {
+            "changed=false" >> $env:GITHUB_OUTPUT
+            "### Global MuMu installer update" >> $env:GITHUB_STEP_SUMMARY
+            "" >> $env:GITHUB_STEP_SUMMARY
+            "No installer binary change detected." >> $env:GITHUB_STEP_SUMMARY
+            "- MD5: $committedMd5" >> $env:GITHUB_STEP_SUMMARY
+            exit 0
+          }
+
+          Copy-Item -LiteralPath $tempExe -Destination .\MuMuInstaller_Global.exe -Force
+          Copy-Item -LiteralPath $tempMetadata -Destination .\installer-url.txt -Force
+
+          "changed=true" >> $env:GITHUB_OUTPUT
+          "md5=$($download.md5)" >> $env:GITHUB_OUTPUT
+          "### Global MuMu installer update" >> $env:GITHUB_STEP_SUMMARY
+          "" >> $env:GITHUB_STEP_SUMMARY
+          "Installer binary changed; an update branch will be pushed." >> $env:GITHUB_STEP_SUMMARY
+          "- Old MD5: $committedMd5" >> $env:GITHUB_STEP_SUMMARY
+          "- New MD5: $($download.md5)" >> $env:GITHUB_STEP_SUMMARY
+
+      - name: Push update branch
+        if: steps.installer.outputs.changed == 'true'
+        shell: powershell
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git checkout -B automation/update-global-mumu-installer
+          git add MuMuInstaller_Global.exe installer-url.txt
+          git commit -m "Update Global MuMu installer"
+          git push --force-with-lease origin automation/update-global-mumu-installer
+
+          "Pushed branch: automation/update-global-mumu-installer" >> $env:GITHUB_STEP_SUMMARY
+          "Open a pull request manually if GitHub Actions pull-request creation is disabled for this repository." >> $env:GITHUB_STEP_SUMMARY

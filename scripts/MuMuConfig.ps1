@@ -1174,16 +1174,14 @@ function Save-MuMuInstaller {
 
     $metadataLines = @(
         'Global MuMu installer resolved via official API.',
-        "ResolvedAtUtc=$([DateTime]::UtcNow.ToString('u'))",
         "MetadataVersion=$($Info.metadata_version)",
         "MetadataUpdateTimeUtc=$($Info.metadata_update_time_utc)",
-        "Filename=$($Info.filename)",
+        "CdnFile=$([System.IO.Path]::GetFileName(([Uri]$Info.final_url).AbsolutePath))",
         "ContentLength=$($Info.content_length)",
         "MD5=$fileHash",
         "ETag=$($Info.final_etag)",
         "LastModified=$($Info.final_last_modified)",
-        "DownloadApi=$($Info.download_api)",
-        "FinalUrl=$($Info.final_url)"
+        "DownloadApi=$($Info.download_api)"
     )
     $utf8NoBom = New-Object System.Text.UTF8Encoding($false)
     [System.IO.File]::WriteAllText($resolvedMetadata, (($metadataLines -join [Environment]::NewLine) + [Environment]::NewLine), $utf8NoBom)

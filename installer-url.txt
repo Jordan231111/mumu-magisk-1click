@@ -1,11 +1,9 @@
 Global MuMu installer resolved via official API.
-ResolvedAtUtc=2026-05-18 23:51:44Z
 MetadataVersion=5.25.3
 MetadataUpdateTimeUtc=2026-05-09 06:56:58Z
-Filename=MuMu_5.0.11_Lt33qiC.exe
+CdnFile=MuMu_5.0.11_gw-win-download_all_1770087078.exe
 ContentLength=5307104
 MD5=4ff1c593755cd0f59c1e101337600324
 ETag=4ff1c593755cd0f59c1e101337600324
 LastModified=Tue, 03 Feb 2026 02:54:18 GMT
 DownloadApi=https://api.mumuplayer.com/api/dl/win?channel=gw-win-download
-FinalUrl=https://a11.gdl.netease.com/MuMu_5.0.11_gw-win-download_all_1770087078.exe?n=MuMu_5.0.11_Lt33qiC.exe&key1=b9a3ab3f13d8f78757eedf010e8ac521&key2=6a0bb40c
