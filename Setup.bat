@@ -37,11 +37,28 @@ for %%d in (C D E F G H I J K L M N O P Q R S T U V W X Y Z) do (
         echo Found MuMu at: !vms_path!
         goto :process_vms
     )
+    if exist "%%d:\Program Files\Netease\MuMu Player 12\vms" (
+        set "vms_path=%%d:\Program Files\Netease\MuMu Player 12\vms"
+        echo Found MuMu at: !vms_path!
+        goto :process_vms
+    )
 )
 
 if not defined vms_path (
-    echo MuMu not found
-    goto :end
+    echo MuMu not found. Please enter the path to your MuMu installation:
+    echo Example:     D:\Software\MuMu Player 12
+    set /p custom_path="Path: "
+    
+    rem Trim leading and trailing spaces from input
+    for /f "tokens=*" %%a in ("!custom_path!") do set "custom_path=%%a"
+    
+    if exist "!custom_path!\vms" (
+        set "vms_path=!custom_path!\vms"
+        echo Found MuMu at: !vms_path!
+    ) else (
+        echo MuMu vms folder not found at the specified path. Please check your installation path and try again.
+        goto :end
+    )
 )
 
 :process_vms

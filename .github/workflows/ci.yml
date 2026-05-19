@@ -1,0 +1,122 @@
+name: CI
+
+on:
+  workflow_dispatch:
+    inputs:
+      update_installer:
+        description: 'Download the current Global installer and open a PR if the committed EXE changed'
+        required: false
+        type: boolean
+        default: false
+  schedule:
+    - cron: '17 8 * * 1'
+  push:
+    branches:
+      - main
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  resolve-global-installer:
+    name: Resolve Global installer
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Resolve Global download URL
+        shell: powershell
+        run: |
+          $json = & powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\MuMuConfig.ps1 -Action ResolveDownload --json
+          if ($LASTEXITCODE -ne 0) {
+            throw "ResolveDownload failed: $json"
+          }
+
+          $info = $json | ConvertFrom-Json
+          if ($info.final_url -notmatch '^https://a11\.gdl\.netease\.com/.*\.exe(\?|$)') {
+            throw "Unexpected Global installer URL: $($info.final_url)"
+          }
+          if (@($info.status_chain) -notcontains 302 -or @($info.status_chain) -notcontains 200) {
+            throw "Unexpected status chain: $($info.status_chain -join ' -> ')"
+          }
+          if (-not (Test-Path -LiteralPath .\MuMuInstaller_Global.exe -PathType Leaf)) {
+            throw "MuMuInstaller_Global.exe is missing from the repo."
+          }
+
+          $committed = Get-Item -LiteralPath .\MuMuInstaller_Global.exe
+          if ($committed.Length -ne [int64]$info.content_length) {
+            throw "Committed installer size is stale. Expected $($info.content_length), got $($committed.Length). Run DownloadInstaller and commit the new EXE."
+          }
+
+          $committedMd5 = (Get-FileHash -LiteralPath .\MuMuInstaller_Global.exe -Algorithm MD5).Hash.ToLowerInvariant()
+          if ($info.final_md5_hex -and $committedMd5 -ne $info.final_md5_hex.ToLowerInvariant()) {
+            throw "Committed installer MD5 is stale. Expected $($info.final_md5_hex), got $committedMd5. Run DownloadInstaller and commit the new EXE."
+          }
+
+          $tempExe = Join-Path $env:RUNNER_TEMP 'MuMuInstaller_Global.exe'
+          $tempMetadata = Join-Path $env:RUNNER_TEMP 'installer-url.txt'
+          $downloadJson = & powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\MuMuConfig.ps1 -Action DownloadInstaller --output $tempExe --metadata $tempMetadata --json
+          if ($LASTEXITCODE -ne 0) {
+            throw "DownloadInstaller failed: $downloadJson"
+          }
+          $download = $downloadJson | ConvertFrom-Json
+          if ($download.md5 -ne $committedMd5) {
+            throw "Downloaded installer does not match committed installer. Downloaded $($download.md5), committed $committedMd5."
+          }
+
+          "### Global MuMu installer" >> $env:GITHUB_STEP_SUMMARY
+          "" >> $env:GITHUB_STEP_SUMMARY
+          "- Metadata version: $($info.metadata_version)" >> $env:GITHUB_STEP_SUMMARY
+          "- Metadata update time: $($info.metadata_update_time_utc)" >> $env:GITHUB_STEP_SUMMARY
+          "- Filename: $($info.filename)" >> $env:GITHUB_STEP_SUMMARY
+          "- Content-Length: $($info.content_length)" >> $env:GITHUB_STEP_SUMMARY
+          "- MD5: $committedMd5" >> $env:GITHUB_STEP_SUMMARY
+          "- Status chain: $($info.status_chain -join ' -> ')" >> $env:GITHUB_STEP_SUMMARY
+          "- Final URL: $($info.final_url)" >> $env:GITHUB_STEP_SUMMARY
+
+  smoke-tests:
+    name: Smoke tests
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Run smoke tests
+        shell: powershell
+        run: |
+          powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\tests\Smoke.Tests.ps1
+
+  update-installer-pr:
+    name: Update installer PR
+    runs-on: windows-latest
+    if: ${{ github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.update_installer == true) }}
+    permissions:
+      contents: write
+      pull-requests: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Download current Global installer
+        shell: powershell
+        run: |
+          powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\MuMuConfig.ps1 -Action DownloadInstaller --output .\MuMuInstaller_Global.exe --metadata .\installer-url.txt
+
+      - name: Open PR if installer changed
+        uses: peter-evans/create-pull-request@v6
+        with:
+          commit-message: Update Global MuMu installer
+          branch: automation/update-global-mumu-installer
+          title: Update Global MuMu installer
+          body: |
+            Updates the committed Global MuMu installer using the official `api.mumuplayer.com` download flow.
+
+            CI verifies the CDN redirect, content length, and MD5 before accepting the committed EXE.
+          add-paths: |
+            MuMuInstaller_Global.exe
+            installer-url.txt
