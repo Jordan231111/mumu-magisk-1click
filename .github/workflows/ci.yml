@@ -96,6 +96,7 @@ jobs:
     if: ${{ github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.update_installer == true) }}
     permissions:
       contents: write
+      pull-requests: write
 
     steps:
       - name: Checkout
@@ -150,4 +151,24 @@ jobs:
           git push --force-with-lease origin automation/update-global-mumu-installer
 
           "Pushed branch: automation/update-global-mumu-installer" >> $env:GITHUB_STEP_SUMMARY
-          "Open a pull request manually if GitHub Actions pull-request creation is disabled for this repository." >> $env:GITHUB_STEP_SUMMARY
+
+      - name: Open update pull request
+        if: steps.installer.outputs.changed == 'true'
+        shell: powershell
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $branch = 'automation/update-global-mumu-installer'
+          $existing = gh pr list --head $branch --base main --json number --jq '.[0].number'
+          if ($existing) {
+            "Pull request already open: #$existing" >> $env:GITHUB_STEP_SUMMARY
+            exit 0
+          }
+
+          gh pr create `
+            --base main `
+            --head $branch `
+            --title "Update Global MuMu installer" `
+            --body "Updates MuMuInstaller_Global.exe and installer-url.txt from MuMu's official Global download API."
+
+          "Opened pull request for branch: $branch" >> $env:GITHUB_STEP_SUMMARY

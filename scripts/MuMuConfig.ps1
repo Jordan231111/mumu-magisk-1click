@@ -536,8 +536,7 @@ function Stop-MuMuProcesses {
         'NemuMultiPlayer',
         'NemuService',
         'NemuSVC',
-        'NemuVMMHeadless',
-        'adb_server'
+        'NemuVMMHeadless'
     )
 
     $stoppedPids = @{}
