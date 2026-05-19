@@ -126,7 +126,7 @@ No `easebar.com` or `netease.com` network blocking is applied because that can b
 The [`Tools/`](Tools/) directory contains utilities that can be useful after setting up Magisk:
 
 - [app-release.apk](Tools/app-release.apk): Kitsune Magisk installer, a Magisk fork commonly used for emulators.
-- [Vector-v2.0-3021-Release.zip](Tools/Vector-v2.0-3021-Release.zip): [Vector](https://github.com/JingMatrix/Vector) framework for Zygisk module support (successor to LSPosed).
+- [Vector-v2.0-3043-Release.zip](Tools/Vector-v2.0-3043-Release.zip): [Vector](https://github.com/JingMatrix/Vector) framework for Zygisk module support (successor to LSPosed).
 - [NeoZygisk-v2.3-282-8b12252-release.zip](Tools/NeoZygisk-v2.3-282-8b12252-release.zip): NeoZygisk for Zygisk-based modules.
 - [HMAL_4.2.0.r104_release_2.zip](Tools/HMAL_4.2.0.r104_release_2.zip): Hide My Applist module.
 - [MT_2.14.5-clone_MOD-V3-PREVIEW.apk](Tools/MT_2.14.5-clone_MOD-V3-PREVIEW.apk): MT Manager APK/file tool.
