@@ -126,11 +126,11 @@ No `easebar.com` or `netease.com` network blocking is applied because that can b
 The [`Tools/`](Tools/) directory contains utilities that can be useful after setting up Magisk:
 
 - [app-release.apk](Tools/app-release.apk): Kitsune Magisk installer, a Magisk fork commonly used for emulators.
-- [LSPosed-v1.10.1-7180-zygisk-release.zip](Tools/LSPosed-v1.10.1-7180-zygisk-release.zip): LSPosed framework for Zygisk module support.
-- [NeoZygisk-v1-0.0-233-ce4a658-release.zip](Tools/NeoZygisk-v1-0.0-233-ce4a658-release.zip): NeoZygisk for Zygisk-based modules.
+- [Vector-v2.0-3021-Release.zip](Tools/Vector-v2.0-3021-Release.zip): Vector framework for Zygisk module support ([LSPosed is now Vector](https://github.com/LSPosed/LSPosed)).
+- [NeoZygisk-v2.3-282-8b12252-release.zip](Tools/NeoZygisk-v2.3-282-8b12252-release.zip): NeoZygisk for Zygisk-based modules.
 - [HMAL_4.2.0.r104_release_2.zip](Tools/HMAL_4.2.0.r104_release_2.zip): Hide My Applist module.
 - [MT_2.14.5-clone_MOD-V3-PREVIEW.apk](Tools/MT_2.14.5-clone_MOD-V3-PREVIEW.apk): MT Manager APK/file tool.
-- [core-patch-4.6.apk](Tools/core-patch-4.6.apk): CorePatch helper for Android package/signature workflows.
+- [core-patch-4.9.apk](Tools/core-patch-4.9.apk): CorePatch helper for Android package/signature workflows ([Core Patch 4.9](https://github.com/LSPosed/CorePatch/releases/tag/4.9)).
 
 These tools are provided for convenience. Install them manually inside the MuMu instance after Magisk is running.
 
@@ -203,6 +203,8 @@ Ko-fi: https://ko-fi.com/yejordan
 
 - Magisk Kitsune: https://github.com/HuskyDG/Magisk
 - Magisk upstream: https://github.com/topjohnwu/Magisk
+- Vector (formerly LSPosed): https://github.com/LSPosed/LSPosed
+- CorePatch: https://github.com/LSPosed/CorePatch
 - MuMu Player: https://www.mumuplayer.com/
 
 ## Disclaimer
