@@ -6,7 +6,7 @@ Global MuMu is preferred by default. Chinese MuMu is supported with the same log
 
 ## Download MuMu
 
-Recommended: use the current Global installer committed in this repo:
+Recommended for new users: use MuMu Player 12 Global.
 
 [Download MuMuInstaller_Global.exe](https://raw.githubusercontent.com/Jordan231111/mumu-magisk-1click/main/MuMuInstaller_Global.exe)
 
@@ -16,7 +16,7 @@ You can also download MuMu Global from the official site:
 
 https://www.mumuplayer.com/download/
 
-## Setup From Command Prompt
+## Setup
 
 Before running setup:
 
@@ -24,21 +24,19 @@ Before running setup:
 2. Open MuMu once.
 3. Use Multi-Instance Manager to create the Android 12 instance you want to root.
 4. Start that instance once, then close MuMu completely.
-5. Run the setup command below from Command Prompt.
+5. Run the setup command below.
 6. Accept the Windows admin prompt.
 7. Open MuMu again and continue with your Magisk Kitsune install.
 
 This tool prepares MuMu root mode and writable system settings. It does not install Magisk inside Android for you.
 
-Open `cmd.exe` and run:
+Works from PowerShell or Command Prompt:
 
 ```cmd
-curl.exe -fL "https://raw.githubusercontent.com/Jordan231111/mumu-magisk-1click/main/Setup.bat" -o Setup.bat && (if not exist scripts mkdir scripts) && curl.exe -fL "https://raw.githubusercontent.com/Jordan231111/mumu-magisk-1click/main/scripts/MuMuConfig.ps1" -o scripts\MuMuConfig.ps1 && Setup.bat
+cmd.exe /d /c "curl.exe -fL https://raw.githubusercontent.com/Jordan231111/mumu-magisk-1click/main/Setup.bat -o Setup.bat && if not exist scripts mkdir scripts && curl.exe -fL https://raw.githubusercontent.com/Jordan231111/mumu-magisk-1click/main/scripts/MuMuConfig.ps1 -o scripts\MuMuConfig.ps1 && Setup.bat"
 ```
 
-The command runs from Command Prompt. It downloads the batch entry point and the plain-text PowerShell helper, then `Setup.bat` handles UAC elevation and invokes PowerShell itself.
-
-You do not need to restart Windows. The PowerShell `ExecutionPolicy Bypass` used here applies only to this one command process; it does not permanently change your Windows settings. On a default Windows 10/11 install, running this from `cmd.exe` is enough.
+You do not need to restart Windows. The PowerShell `ExecutionPolicy Bypass` used by `Setup.bat` applies only to this one command process; it does not permanently change your Windows settings.
 
 If both editions are installed, Global is patched by default. To patch both:
 
@@ -76,10 +74,10 @@ This project is no longer pinned to Chinese V4.1.24.3688. The scripts target the
 
 ## Restore
 
-Run this from Command Prompt:
+Run this from PowerShell or Command Prompt:
 
 ```cmd
-curl.exe -fL "https://raw.githubusercontent.com/Jordan231111/mumu-magisk-1click/main/RestoreMuMuConfig.bat" -o RestoreMuMuConfig.bat && (if not exist scripts mkdir scripts) && curl.exe -fL "https://raw.githubusercontent.com/Jordan231111/mumu-magisk-1click/main/scripts/MuMuConfig.ps1" -o scripts\MuMuConfig.ps1 && RestoreMuMuConfig.bat
+cmd.exe /d /c "curl.exe -fL https://raw.githubusercontent.com/Jordan231111/mumu-magisk-1click/main/RestoreMuMuConfig.bat -o RestoreMuMuConfig.bat && if not exist scripts mkdir scripts && curl.exe -fL https://raw.githubusercontent.com/Jordan231111/mumu-magisk-1click/main/scripts/MuMuConfig.ps1 -o scripts\MuMuConfig.ps1 && RestoreMuMuConfig.bat"
 ```
 
 Restore copies every `*.bak` file under each non-base instance `configs` directory back to its original filename.
@@ -111,7 +109,50 @@ Currently documented optional keys:
 | `customer_config.json` | `setting.other_setting.run_limitation` | `"0"` |
 | `shell_config.json` | `player.uu_remote.should_show` | `"false"` |
 
+`run_limitation` is an existing MuMu config toggle. The script keeps it disabled when the key is present, but the exact MuMu behavior is not officially documented.
+
 No `easebar.com` or `netease.com` network blocking is applied because that can break updates and login.
+
+## Bundled Tools
+
+The `Tools/` directory contains utilities that can be useful after setting up Magisk:
+
+- `app-release.apk`: Kitsune Magisk installer, a Magisk fork commonly used for emulators.
+- `LSPosed-v1.10.1-7180-zygisk-release.zip`: LSPosed framework for Zygisk module support.
+- `NeoZygisk-v1-0.0-233-ce4a658-release.zip`: NeoZygisk for Zygisk-based modules.
+- `HMAL_4.2.0.r104_release_2.zip`: Hide My Applist module.
+- `MT_2.14.5-clone_MOD-V3-PREVIEW.apk`: MT Manager APK/file tool.
+- `core-patch-4.6.apk`: CorePatch helper for Android package/signature workflows.
+
+These tools are provided for convenience. Install them manually inside the MuMu instance after Magisk is running.
+
+## Video Tutorials
+
+Part 1, basic setup and Play Store:
+
+https://www.youtube.com/watch?v=bBj8CE55lpk
+
+Part 2, advanced setup and optimization:
+
+https://www.youtube.com/watch?v=XGNkyvmAckE
+
+## Visual Settings Guide
+
+The screenshot folders are kept as references for users comparing Chinese and English MuMu UI labels. CPU/RAM allocation and FPS/performance settings should be adjusted for your own PC instead of copied blindly.
+
+| Setting | Chinese UI (`ChineseAssets/`) | English UI (`assets/`) |
+| --- | --- | --- |
+| Other Settings | ![Other Settings](ChineseAssets/MuMuPlayer_syw6Ig9jQV.png) | ![Other Settings](assets/OtherSettings.png) |
+| More Other Settings | ![More Settings](ChineseAssets/MuMuPlayer_80z4wORNeA.png) | ![More Settings](assets/otherSettings2.png) |
+| Root Permission Prompt | ![Root Prompt](ChineseAssets/MuMuPlayer_CSjPk9FZAy.png) | ![Root Prompt](assets/MuMuPlayer_CSjPk9FZAy.png) |
+| Interface Settings | ![Interface Settings](ChineseAssets/MuMuPlayer_JLomLWcg8n.png) | ![Interface Settings](assets/MuMuPlayer_JLomLWcg8n.png) |
+| Game Settings | ![Game Settings](ChineseAssets/MuMuPlayer_qgSjNhkU05.png) | ![Game Settings](assets/MuMuPlayer_qgSjNhkU05.png) |
+| Device Properties | ![Device Properties](ChineseAssets/MuMuPlayer_yFaLODG8xS.png) | ![Device Properties](assets/MuMuPlayer_yFaLODG8xS.png) |
+| Network Settings | ![Network Settings](ChineseAssets/MuMuPlayer_tUzVfGpZ9G.png) | ![Network Settings](assets/MuMuPlayer_tUzVfGpZ9G.png) |
+| Performance Monitor / FPS | ![Monitor](ChineseAssets/MuMuPlayer_9t5cRTMdC6.png) | ![Monitor](assets/MuMuPlayer_9t5cRTMdC6.png) |
+| Basic Settings | ![Basic Settings](ChineseAssets/MuMuPlayer_pAD1HH9j5I.png) | ![Basic Settings](assets/MuMuPlayer_pAD1HH9j5I.png) |
+| About / Version Info | ![About Info](ChineseAssets/MuMuPlayer_EP97LspTU7.png) | ![About Info](assets/MuMuPlayer_EP97LspTU7.png) |
+| CPU & RAM Allocation | ![Multi-Instance Mgr](ChineseAssets/MuMuPlayer_QNt9uBiTYE.png) | ![Multi-Instance Mgr](assets/MuMuPlayer_QNt9uBiTYE.png) |
 
 ## Antivirus Notes
 
@@ -140,24 +181,24 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File tests\Smoke.Tests.ps1
 
 The tests create temporary Global and Chinese fixtures, write HKCU uninstall-registry test keys, verify Global-first discovery, setup, restore, and live Global download resolution. They do not install or launch MuMu in CI.
 
-## Visual Settings Guide
+## Need Help?
 
-The screenshot folders are kept as references for users comparing Chinese and English MuMu UI labels:
+Telegram: https://t.me/+6EreKfc983UzMjgx
 
-| Setting | Chinese UI (`ChineseAssets/`) | English UI (`assets/`) |
-| --- | --- | --- |
-| Performance Settings | ![Perf Settings](ChineseAssets/MuMuPlayer_syw6Ig9jQV.png) | ![Perf Settings](assets/MuMuPlayer_syw6Ig9jQV.png) |
-| Display Settings | ![Display Settings](ChineseAssets/MuMuPlayer_80z4wORNeA.png) | ![Display Settings](assets/MuMuPlayer_80z4wORNeA%20(1).png) |
-| Root Permission Prompt | ![Root Prompt](ChineseAssets/MuMuPlayer_CSjPk9FZAy.png) | ![Root Prompt](assets/MuMuPlayer_CSjPk9FZAy.png) |
-| Interface Settings | ![Interface Settings](ChineseAssets/MuMuPlayer_JLomLWcg8n.png) | ![Interface Settings](assets/MuMuPlayer_JLomLWcg8n.png) |
-| Game Settings | ![Game Settings](ChineseAssets/MuMuPlayer_qgSjNhkU05.png) | ![Game Settings](assets/MuMuPlayer_qgSjNhkU05.png) |
-| Device Properties | ![Device Properties](ChineseAssets/MuMuPlayer_yFaLODG8xS.png) | ![Device Properties](assets/MuMuPlayer_yFaLODG8xS.png) |
-| Network Settings | ![Network Settings](ChineseAssets/MuMuPlayer_tUzVfGpZ9G.png) | ![Network Settings](assets/MuMuPlayer_tUzVfGpZ9G.png) |
-| FPS Settings | ![FPS Settings](ChineseAssets/MuMuPlayer_9t5cRTMdC6.png) | ![FPS Settings](assets/MuMuPlayer_9t5cRTMdC6.png) |
-| Basic Settings | ![Basic Settings](ChineseAssets/MuMuPlayer_pAD1HH9j5I.png) | ![Basic Settings](assets/MuMuPlayer_pAD1HH9j5I.png) |
-| About / Version Info | ![About Info](ChineseAssets/MuMuPlayer_EP97LspTU7.png) | ![About Info](assets/MuMuPlayer_EP97LspTU7.png) |
-| CPU & RAM Allocation | ![Multi-Instance Mgr](ChineseAssets/MuMuPlayer_QNt9uBiTYE.png) | ![Multi-Instance Mgr](assets/MuMuPlayer_QNt9uBiTYE.png) |
+## Support The Project
+
+Ko-fi: https://ko-fi.com/yejordan
+
+## Credits
+
+- Magisk Kitsune: https://github.com/HuskyDG/Magisk
+- Magisk upstream: https://github.com/topjohnwu/Magisk
+- MuMu Player: https://www.mumuplayer.com/
 
 ## Disclaimer
 
 This tool is for educational and development use. Root access and writable system settings can affect emulator stability and security. Use it only on instances you are prepared to modify and restore.
+
+## License
+
+See [LICENSE.md](LICENSE.md).

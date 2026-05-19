@@ -1,0 +1,447 @@
+1
+00:00:00,500 --> 00:00:03,000
+Navigating the mumu-magisk-1click GitHub repository.
+
+2
+00:00:03,000 --> 00:00:05,200
+Clicking into the 'Tools' directory.
+
+3
+00:00:05,200 --> 00:00:08,100
+Hovering over the HMAL zip file link.
+
+4
+00:00:08,100 --> 00:00:10,500
+Clicking the download icon and downloading the HMAL zip file.
+
+5
+00:00:10,500 --> 00:00:12,800
+Navigating back and hovering over the LSPosed zip file link.
+
+6
+00:00:12,800 --> 00:00:15,500
+Clicking the download icon and downloading the LSPosed zip file.
+
+7
+00:00:15,500 --> 00:00:17,800
+Navigating back and hovering over the MT Manager MOD apk file link.
+
+8
+00:00:17,800 --> 00:00:24,000
+Clicking download, confirming duplicate, and downloading the MT Manager MOD apk file.
+
+9
+00:00:24,000 --> 00:00:25,500
+Closing the download dialog and hovering over the NeoZygisk zip file link.
+
+10
+00:00:25,500 --> 00:00:30,200
+Clicking the download icon and downloading the NeoZygisk zip file.
+
+11
+00:00:30,200 --> 00:00:33,000
+Minimizing the browser to show the MuMu Player 12 emulator window.
+
+12
+00:00:33,000 --> 00:00:39,500
+Showing the default MuMu Player home screen icons.
+
+13
+00:00:39,500 --> 00:00:42,000
+Opening Windows File Explorer and navigating to the Downloads folder.
+
+14
+00:00:42,000 --> 00:00:47,800
+Selecting and copying the four downloaded files (NeoZygisk, MT Manager, LSPosed, HMAL).
+
+15
+00:00:47,800 --> 00:00:50,000
+Closing the File Explorer window.
+
+16
+00:00:50,000 --> 00:00:58,000
+Clicking the MuMu file transfer/shared folder icon in the emulator sidebar.
+
+17
+00:00:58,000 --> 00:01:01,500
+Opening the MuMu12Shared folder on the host computer via the emulator dialog.
+
+18
+00:01:01,500 --> 00:01:16,000
+Dragging the four copied files from the host Downloads folder to the MuMu12Shared folder.
+
+19
+00:01:16,000 --> 00:01:19,000
+Closing the File Explorer and emulator file transfer dialog windows.
+
+20
+00:01:19,000 --> 00:01:22,500
+Opening the Kitsune Mask app in the emulator.
+
+21
+00:01:22,500 --> 00:01:27,000
+Kitsune Mask app opens, showing version and root status. Hiding the unofficial version warning.
+
+22
+00:01:27,000 --> 00:01:33,000
+Accessing Kitsune Mask settings and enabling the MagiskHide option.
+
+23
+00:01:33,000 --> 00:01:36,200
+Navigating to the Modules section in Kitsune Mask.
+
+24
+00:01:36,200 --> 00:01:49,500
+Selecting 'Install from storage' and installing the LSPosed module zip file.
+
+25
+00:01:49,500 --> 00:01:56,500
+Installing the NeoZygisk module zip file from storage.
+
+26
+00:01:56,500 --> 00:02:03,500
+Attempting to install the HMAL module zip file, which results in an 'Unzip error'.
+
+27
+00:02:03,500 --> 00:02:09,500
+Returning to the Modules screen, showing the two successfully installed modules.
+
+28
+00:02:09,500 --> 00:02:12,000
+Closing Kitsune Mask. Opening the host File Explorer (Downloads folder).
+
+29
+00:02:12,000 --> 00:02:16,000
+Opening the MT Manager app in the emulator.
+
+30
+00:02:16,000 --> 00:02:19,500
+Agreeing to MT Manager's User Agreement and granting Superuser (root) access.
+
+31
+00:02:19,500 --> 00:02:25,500
+Following prompts to grant MT Manager 'All files access' permission via Android settings.
+
+32
+00:02:25,500 --> 00:02:32,000
+Navigating within MT Manager to the /storage/emulated/0/SMuMu12Shared/Download/ folder.
+
+33
+00:02:32,000 --> 00:02:46,000
+Selecting the HMAL zip file and choosing 'Extract to current directory'.
+
+34
+00:02:46,000 --> 00:02:52,500
+Clicking the extracted HMAL apk file and initiating installation. Launching the app after successful installation.
+
+35
+00:02:52,500 --> 00:02:56,000
+The HMAL app opens, initially showing 'Module Not Activated'.
+
+36
+00:02:56,000 --> 00:03:03,500
+Navigating to HMAL settings and changing the theme to 'Always on' dark mode.
+
+37
+00:03:03,500 --> 00:03:11,000
+Scrolling down, enabling 'Void app data isolation' and granting HMAL Superuser rights.
+
+38
+00:03:11,000 --> 00:03:17,000
+Enabling 'Enforce data isolation for all apps' and 'Hide module icon in launcher'.
+
+39
+00:03:17,000 --> 00:03:25,000
+Navigating back to the HMAL home screen and confirming an exit prompt (in Chinese).
+
+40
+00:03:25,000 --> 00:03:29,000
+Closing HMAL and opening the MuMu Multi-instance Manager on the host desktop.
+
+41
+00:03:29,000 --> 00:03:33,500
+Closing the MuMu Multi-instance Manager.
+
+42
+00:03:33,500 --> 00:03:40,000
+Switching back to the web browser and searching Google for 'core patch'.
+
+43
+00:03:40,000 --> 00:03:49,000
+Clicking the GitHub link for LSPosed/CorePatch.
+
+44
+00:03:49,000 --> 00:03:55,500
+Navigating to the 'Releases' section of the CorePatch repository.
+
+45
+00:03:55,500 --> 00:04:03,000
+Clicking to download the `core-patch-4.6.apk` file from the latest release.
+
+46
+00:04:03,000 --> 00:04:09,000
+Confirming the download and opening the host computer's Downloads folder.
+
+47
+00:04:09,000 --> 00:04:12,500
+Dragging the downloaded Core Patch apk into the MuMu Multi-instance Manager to install on the running emulator.
+
+48
+00:04:12,500 --> 00:04:29,500
+The MuMu emulator instance restarts and loads various splash screens.
+
+49
+00:04:29,500 --> 00:04:32,500
+Emulator home screen appears. Closing the host Downloads folder overlay.
+
+50
+00:04:32,500 --> 00:04:38,500
+Opening the HMAL app (disguised as 'Android System'), showing an 'Xposed module not activated' notification.
+
+51
+00:04:38,500 --> 00:04:41,500
+Opening the Kitsune Mask app.
+
+52
+00:04:41,500 --> 00:04:46,500
+Checking the Modules tab, confirming NeoZygisk and LSPosed are active.
+
+53
+00:04:46,500 --> 00:04:57,500
+Browsing other Kitsune Mask tabs (Logs, Home, Settings).
+
+54
+00:04:57,500 --> 00:05:05,000
+Clicking the 'LSPosed loaded' notification to open the LSPosed manager app. Viewing the Modules list.
+
+55
+00:05:05,000 --> 00:05:11,500
+Enabling the Core Patch module within LSPosed and selecting 'System Framework' as its scope.
+
+56
+00:05:11,500 --> 00:05:27,000
+Navigating into Core Patch settings and enabling options: Disable compare signatures, Enhanced Mode, Bypass block, Bypass shared user verify, Disable Package Verification Agent.
+
+57
+00:05:27,000 --> 00:05:36,500
+Enabling the HMAL module within LSPosed and selecting 'System Framework' as its scope. Confirming an exit prompt (in Chinese).
+
+58
+00:05:36,500 --> 00:05:40,500
+Closing LSPosed and opening the MuMu Multi-instance Manager.
+
+59
+00:05:40,500 --> 00:05:54,500
+Stopping and then restarting the 'DEMO-1' MuMu emulator instance.
+
+60
+00:05:54,500 --> 00:05:57,000
+Emulator has loaded. Opening the Kitsune Mask app.
+
+61
+00:05:57,000 --> 00:06:05,500
+Navigating to Kitsune Mask Settings -> Configure MagiskHide and adding 'DarkClan' and 'Core Patch' to the hide list.
+
+62
+00:06:05,500 --> 00:06:08,500
+Closing Kitsune Mask.
+
+63
+00:06:08,500 --> 00:06:11,500
+Opening the HMAL app, which now correctly shows 'Module Activated'.
+
+64
+00:06:11,500 --> 00:06:23,500
+Navigating to HMAL -> App manage. Enabling 'Enable hide' for DarkClan, Core Patch, HMAL, Kitsune Mask, and MT Manager.
+
+65
+00:06:23,500 --> 00:06:26,000
+Returning to the HMAL home screen and closing the app.
+
+66
+00:06:26,000 --> 00:06:30,500
+Opening the Google Play Store, which now loads without requiring sign-in immediately (though sign-in is still needed for downloads).
+
+67
+00:06:30,500 --> 00:06:39,500
+Switching to a web browser tab displaying a Platinmods forum thread for a Dark Clan game mod.
+
+68
+00:06:39,500 --> 00:06:45,000
+Switching back to the Google Play Store and searching for 'Dark Clan: Squad Idle RPG'.
+
+69
+00:06:45,000 --> 00:06:51,500
+Clicking the 'Install' button for the Dark Clan game on the Play Store.
+
+70
+00:06:51,500 --> 00:07:00,000
+Switching back to the Platinmods browser tab, scrolling to download links, clicking the PM Patcher download link, confirming duplicate, downloading, and opening the host Downloads folder containing the patcher apk.
+
+71
+00:07:00,000 --> 00:07:07,500
+Downloading the PM Patcher apk file from Platinmods via the browser.
+
+72
+00:07:07,500 --> 00:07:14,500
+Dragging the downloaded PM Patcher apk from the host Downloads folder into the MuMu Multi-instance Manager to install it on the emulator.
+
+73
+00:07:14,500 --> 00:07:18,000
+Briefly showing the host Downloads folder again.
+
+74
+00:07:18,000 --> 00:07:35,500
+The Dark Clan game finishes installing in the emulator's Google Play Store.
+
+75
+00:07:35,500 --> 00:07:38,500
+Opening the newly installed PM Patcher app in the emulator.
+
+76
+00:07:38,500 --> 00:07:41,500
+Opening the Dark Clan game app in the emulator.
+
+77
+00:07:41,500 --> 00:07:47,500
+Dark Clan game shows a LIAPP Alert security check for rooting ("/bin/su"). Clicking OK.
+
+78
+00:07:47,500 --> 00:07:51,500
+The Dark Clan game closes unexpectedly after the security check.
+
+79
+00:07:51,500 --> 00:07:59,000
+Opening the HMAL app. Navigating to App manage -> DarkClan -> App settings.
+
+80
+00:07:59,000 --> 00:08:06,000
+Enabling the 'Enable hide' option specifically for the Dark Clan app within HMAL.
+
+81
+00:08:06,000 --> 00:08:12,500
+Navigating back to HMAL settings. Enabling 'Void app data isolation' and 'Enforce data isolation for all apps'.
+
+82
+00:08:12,500 --> 00:08:17,500
+Navigating to HMAL -> App manage -> DarkClan -> Clear data. Confirming the action.
+
+83
+00:08:17,500 --> 00:08:20,000
+Closing the HMAL app.
+
+84
+00:08:20,000 --> 00:08:22,500
+Opening the PM Patcher app.
+
+85
+00:08:22,500 --> 00:08:28,500
+Closing PM Patcher and opening the Dark Clan game app again.
+
+86
+00:08:28,500 --> 00:08:36,000
+Dark Clan game starts loading (Gameberry Studio logo).
+
+87
+00:08:36,000 --> 00:08:39,500
+A "Browser keeps stopping" error appears. Closing the error dialog.
+
+88
+00:08:39,500 --> 00:08:46,500
+Accepting the Dark Clan Game Terms and Conditions.
+
+89
+00:08:46,500 --> 00:08:50,000
+Accepting the Nighttime Push Consent prompt.
+
+90
+00:08:50,000 --> 00:08:55,000
+Initiating Google Sign-in within the Dark Clan game.
+
+91
+00:08:55,000 --> 00:09:07,500
+Dark Clan game continues loading (User data, Check server, Game loading).
+
+92
+00:09:07,500 --> 00:09:10,500
+Switching back to the PM Patcher app.
+
+93
+00:09:10,500 --> 00:09:18,500
+The PM Patcher app interface is shown (Mod By JokerART).
+
+94
+00:09:18,500 --> 00:09:29,500
+Selecting the target package for patching: `studio.gameberry.idledarkknight`.
+
+95
+00:09:29,500 --> 00:09:32,500
+Clicking 'Attach To PID Process'. A success message appears.
+
+96
+00:09:32,500 --> 00:09:35,500
+Clicking 'Create New Instance MemoryPatch'. A "Please wait" message appears.
+
+97
+00:09:35,500 --> 00:09:40,000
+Switching back to the Dark Clan game app.
+
+98
+00:09:40,000 --> 00:09:49,500
+The game finishes loading and enters the main game interface.
+
+99
+00:09:49,500 --> 00:10:18,500
+Showing Dark Clan gameplay: character stats, enhancing allies, combat.
+
+100
+00:10:18,500 --> 00:10:20,500
+Exiting the Dark Clan game.
+
+101
+00:10:20,500 --> 00:10:27,500
+Re-launching the Dark Clan game.
+
+102
+00:10:27,500 --> 00:10:47,500
+The game loads successfully again, indicating the patch and hiding methods worked.
+
+103
+00:10:47,500 --> 00:11:18,500
+Demonstrating more Dark Clan gameplay and navigating various in-game menus.
+
+104
+00:11:18,500 --> 00:11:27,500
+Closing the game and switching to the web browser, showing the mumu-magisk-1click GitHub README.
+
+105
+00:11:27,500 --> 00:11:41,500
+Scrolling through the "Visual Settings Guide" comparing Chinese and English UI elements.
+
+106
+00:11:41,500 --> 00:11:45,500
+Highlighting the command used to restore original MuMu settings.
+
+107
+00:11:45,500 --> 00:12:38,500
+Scrolling through the rest of the README, showing sections like Requirements, Disclaimer, and License, along with configuration screenshots.
+
+108
+00:12:38,500 --> 00:12:56,500
+Browsing the 'ChineseAssets' folder contents on GitHub, displaying Chinese UI screenshots.
+
+109
+00:12:56,500 --> 00:13:46,500
+Browsing the 'assets' folder contents on GitHub, displaying the corresponding English UI screenshots for various MuMu settings menus.
+
+110
+00:13:46,500 --> 00:13:55,000
+Returning to the README's Visual Settings Guide table.
+
+111
+00:13:55,000 --> 00:14:01,000
+Highlighting the relative path link to the Chinese UI assets folder within the table.
+
+112
+00:14:01,000 --> 00:14:09,000
+Returning to the MuMu emulator home screen, concluding the demonstration.
