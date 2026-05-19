@@ -128,7 +128,7 @@ The [`Tools/`](Tools/) directory contains utilities that can be useful after set
 - [app-release.apk](Tools/app-release.apk): Kitsune Magisk installer, a Magisk fork commonly used for emulators.
 - [Vector-v2.0-3043-Release.zip](Tools/Vector-v2.0-3043-Release.zip): [Vector](https://github.com/JingMatrix/Vector) framework for Zygisk module support (successor to LSPosed).
 - [NeoZygisk-v2.3-282-8b12252-release.zip](Tools/NeoZygisk-v2.3-282-8b12252-release.zip): NeoZygisk for Zygisk-based modules.
-- [HMAL_4.2.0.r104_release_2.zip](Tools/HMAL_4.2.0.r104_release_2.zip): Hide My Applist module.
+- [HMA-OSS-oss-161-release.apk](Tools/HMA-OSS-oss-161-release.apk): [HMA-OSS](https://github.com/frknkrc44/HMA-OSS/releases/tag/oss-161) Hide My Applist app (install as APK; enable in Vector).
 - [MT_2.14.5-clone_MOD-V3-PREVIEW.apk](Tools/MT_2.14.5-clone_MOD-V3-PREVIEW.apk): MT Manager APK/file tool.
 - [core-patch-4.9.apk](Tools/core-patch-4.9.apk): CorePatch helper for Android package/signature workflows ([Core Patch 4.9](https://github.com/LSPosed/CorePatch/releases/tag/4.9)).
 
@@ -204,6 +204,7 @@ Ko-fi: https://ko-fi.com/yejordan
 - Magisk Kitsune: https://github.com/HuskyDG/Magisk
 - Magisk upstream: https://github.com/topjohnwu/Magisk
 - Vector (successor to LSPosed): https://github.com/JingMatrix/Vector
+- HMA-OSS: https://github.com/frknkrc44/HMA-OSS
 - CorePatch: https://github.com/LSPosed/CorePatch
 - MuMu Player: https://www.mumuplayer.com/
 
