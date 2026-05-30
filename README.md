@@ -1,110 +1,172 @@
-# MuMu Magisk 1-Click Setup
+<div align="center">
 
-One-click Windows setup for preparing MuMu Player 12 instances for Magisk Kitsune by enabling MuMu root mode and writable system disk settings.
+# 🐾 MuMu Magisk 1-Click
 
-Global MuMu is preferred by default. Chinese MuMu is supported with the same logic when Global is not installed, or when selected explicitly.
+### Root your MuMu Player 12 Android emulator in one click — no rooting experience needed.
 
-## Download MuMu
+One command turns on MuMu's **root mode** and **writable system** so you can install **Magisk Kitsune**.
+It finds your install automatically, backs up every file it touches, and has a one-click undo.
 
-Recommended for new users: use MuMu Player 12 Global.
+[![Stars](https://img.shields.io/github/stars/Jordan231111/mumu-magisk-1click?style=social)](https://github.com/Jordan231111/mumu-magisk-1click/stargazers) ![Windows](https://img.shields.io/badge/Windows-10%20%7C%2011-0078D6?logo=windows&logoColor=white) ![MuMu](https://img.shields.io/badge/MuMu-Player%2012-success) ![License](https://img.shields.io/badge/License-CC%20BY--NC--ND%204.0-lightgrey) [![Telegram](https://img.shields.io/badge/Telegram-join-26A5E4?logo=telegram&logoColor=white)](https://t.me/+6EreKfc983UzMjgx)
 
-[Download MuMuInstaller_Global.exe](https://raw.githubusercontent.com/Jordan231111/mumu-magisk-1click/main/MuMuInstaller_Global.exe)
+</div>
 
-The installer metadata is tracked in [installer-url.txt](installer-url.txt). CI checks the committed EXE against MuMu's official download API and opens an update PR when the scheduled updater sees a change.
+---
 
-You can also download MuMu Global from the official site:
+## ✨ What you get
 
-https://www.mumuplayer.com/download/
+- ✅ **Root mode + writable system** switched on for every instance, automatically.
+- ✅ **One action** — double-click a file (or paste one command). It asks for admin, does its thing, done.
+- ✅ **Finds MuMu for you** — works wherever it's installed, Global or Chinese edition.
+- ✅ **Safe by design** — backs up every file before changing it, and the undo restores everything.
+- ✅ **Everything bundled** — Magisk Kitsune, Zygisk, Vector, Hide My Applist, MT Manager and more, all in one download.
+- ✅ **Transparent** — plain PowerShell, no obfuscation, no hidden network calls, no persistence. [See exactly what it changes ↓](#-exactly-what-it-changes)
 
-## Setup
+> [!NOTE]
+> This tool prepares the **Windows side** (the part that's tedious and easy to get wrong). The final step — installing Magisk *inside* Android — takes about two minutes and is covered in the [video walkthrough ↓](#-after-setup-install-magisk-inside-android). It does **not** install Magisk into Android for you.
 
-Before running setup:
+---
 
-1. Install MuMu Player 12 Global.
-2. Open MuMu once.
-3. Use Multi-Instance Manager to create the Android 12 instance you want to root.
-4. Start that instance once, then close MuMu completely.
-5. Run the setup command below.
-6. Accept the Windows admin prompt.
-7. Open MuMu again and continue with your Magisk Kitsune install.
+## ⚡ Quick start (easiest — no terminal)
 
-This tool prepares MuMu root mode and writable system settings. It does not install Magisk inside Android for you.
+1. **[⬇️ Download the ZIP](https://github.com/Jordan231111/mumu-magisk-1click/archive/refs/heads/main.zip)** (this bundles the setup tool *and* all the APKs you'll need).
+2. **Right-click the ZIP → Extract All.**
+3. Open the extracted folder and **double-click `Setup.bat`**.
+4. If Windows shows *"Windows protected your PC"*, click **More info → Run anyway** (it's an unsigned script — see [Is this safe?](#is-this-safe)).
+5. Click **Yes** on the admin prompt.
+6. When it says **`Done. Files changed: …`**, close the window and reopen MuMu. ✅
 
-Works from PowerShell or Command Prompt:
+That's it for the Windows side. Next: [install Magisk inside Android ↓](#-after-setup-install-magisk-inside-android).
+
+<details>
+<summary><b>Prefer one command instead of downloading the ZIP?</b></summary>
+
+<br>
+
+Paste this into **PowerShell** or **Command Prompt** (Press <kbd>Win</kbd>, type `cmd`, hit Enter). It downloads and runs the setup for you:
 
 ```cmd
 cmd.exe /d /c "curl.exe -fL https://raw.githubusercontent.com/Jordan231111/mumu-magisk-1click/main/Setup.bat -o Setup.bat && Setup.bat"
 ```
 
-For standalone one-command runs, `Setup.bat` refreshes its PowerShell helper automatically so an older `scripts\MuMuConfig.ps1` beside it does not stay stale. When run from a cloned repo, it uses the checked-in helper file.
+Accept the admin prompt when it appears. With this method you'll still want the [bundled tools ↓](#-whats-bundled) for the in-Android steps.
 
-You do not need to restart Windows. The PowerShell `ExecutionPolicy Bypass` used by `Setup.bat` applies only to this one command process; it does not permanently change your Windows settings.
+</details>
 
-If both editions are installed, Global is patched by default. To patch both:
+---
 
-```cmd
-Setup.bat --edition all
-```
+## ✅ Before you start
 
-Useful options:
+You need just three things:
 
-```cmd
-Setup.bat --dry-run
-Setup.bat --edition global
-Setup.bat --edition chinese
-Setup.bat --edition all
-```
+1. **Windows 10 or 11.**
+2. **MuMu Player 12 installed.** New users should pick **Global** — it's in English and recommended.
+   <br>👉 [Download MuMu Player 12 Global](https://raw.githubusercontent.com/Jordan231111/mumu-magisk-1click/main/MuMuInstaller_Global.exe) (bundled here) · or from the [official site](https://www.mumuplayer.com/download/).
+3. **An Android 12 instance, created and started once.** Open MuMu → **Multi-Instance Manager** → create an Android 12 instance → start it once so its files exist → then **close MuMu completely** before running setup.
 
-## What It Changes
+> 💡 Chinese MuMu works too. If both editions are installed, Global is patched by default — use `Setup.bat --edition all` to do both.
 
-- Finds MuMu installs from the Windows uninstall registry first, including custom `InstallLocation` paths.
-- Falls back to known `Program Files\Netease` paths only if registry discovery fails.
-- Patches every non-base instance under `{InstallRoot}\vms\*\configs`.
-- Updates MuMu's user-level APK association toggle under `%APPDATA%\Netease\MuMuPlayerGlobal\configs\nx_main.json` or `%APPDATA%\Netease\MuMuPlayer\configs\nx_main.json` when that file exists.
-- Clears current-user `.apk`, `.xapk`, and `.apks` Windows file associations only when they currently point to MuMu, and stores a restore value first.
-- Creates `.bak` backups before the first write and restores from those backups later.
-- Uses PowerShell JSON parsing instead of line-by-line batch text replacement.
-- Does not add hosts-file rules, firewall rules, startup entries, services, scheduled tasks, or silent installer execution.
+---
 
-## Requirements
+## 📦 What's bundled
 
-- Windows 10 or 11.
-- Administrator rights for setup and restore.
-- MuMu Player 12 Global or Chinese installed. Global is recommended for new users.
-- Android 12 instance(s) already created in MuMu Multi-Instance Manager.
-- MuMu fully closed before running setup.
+Everything you need after rooting is already in the [`Tools/`](Tools/) folder — install these **inside** MuMu once Magisk is running:
 
-This project is no longer pinned to Chinese V4.1.24.3688. The scripts target the MuMu 12 config schema and have smoke tests for current Global-style paths. If a future MuMu release changes the config keys, run `Setup.bat --dry-run` first and open an issue with the dry-run output.
+| Tool | What it's for |
+| --- | --- |
+| [Magisk Kitsune](Tools/app-release.apk) | The root manager. A [Magisk fork](https://github.com/HuskyDG/Magisk) tuned for emulators. **Install this first.** |
+| [NeoZygisk](Tools/NeoZygisk-v2.3-282-8b12252-release.zip) | Zygisk engine — required for most modern root modules. |
+| [Vector](Tools/Vector-v2.0-3043-Release.zip) | Module framework (the [successor to LSPosed](https://github.com/JingMatrix/Vector)). |
+| [Hide My Applist (HMA-OSS)](Tools/HMA-OSS-oss-161-release.apk) | Hides root from apps that look for it. [Source](https://github.com/frknkrc44/HMA-OSS). Install the APK, then enable it in Vector. |
+| [MT Manager](Tools/mtmanager.apk) | The go-to root file manager / APK editor. [Official site](https://mt2.cn/). |
+| [CorePatch](Tools/core-patch-4.9.apk) | Lets Android install/patch apps with mismatched signatures. [Source](https://github.com/LSPosed/CorePatch). |
 
-## Restore
+> You can also drag any of these onto the MuMu window to install them.
 
-Run this from PowerShell or Command Prompt:
+---
+
+## 👉 After setup: install Magisk & modules inside Android
+
+Setup prepped the **Windows** side. The rest happens **inside MuMu**, and the two videos below walk through every tap.
+
+> 🎞️ **Heads up — the videos are slightly out of date.** They flash **LSPosed**, which is now replaced by the bundled **[Vector](Tools/Vector-v2.0-3043-Release.zip)** (a drop-in successor — same steps), and they download a couple of tools by hand that are now **bundled in [`Tools/`](Tools/)**, so your version is a little shorter. The flow is otherwise identical.
+
+**🎬 [Part 1 — root + Play Store](https://www.youtube.com/watch?v=bBj8CE55lpk)**
+
+1. Open MuMu, start your instance, and accept the **root permission** prompt.
+2. Install **Magisk Kitsune** (the app appears as **Kitsune Mask**) — drag [`Tools/app-release.apk`](Tools/app-release.apk) onto the MuMu window, open it, let it finish, and reboot the instance if asked.
+3. Sign in to the Play Store.
+
+**🎬 [Part 2 — modules, Core Patch & hiding root](https://www.youtube.com/watch?v=XGNkyvmAckE)**
+
+1. Copy the tools into MuMu — use the **shared-folder button** in MuMu's sidebar, or drag a file straight onto the window.
+2. In **Kitsune Mask → Modules → Install from storage**, flash the **[NeoZygisk](Tools/NeoZygisk-v2.3-282-8b12252-release.zip)** and **[Vector](Tools/Vector-v2.0-3043-Release.zip)** ZIPs.
+3. Install the apps (APKs): **[Hide My Applist](Tools/HMA-OSS-oss-161-release.apk)**, **[MT Manager](Tools/mtmanager.apk)**, **[CorePatch](Tools/core-patch-4.9.apk)**.
+4. Open **Vector** (*LSPosed* in the video) → enable **CorePatch** and **Hide My Applist** as modules, set scope to **System Framework**, and turn on CorePatch's options.
+5. Hide root where you want it: **Kitsune Mask → Configure MagiskHide** plus **Hide My Applist → App manage**, then restart the instance.
+
+> 💡 **ZIP vs APK:** a **ZIP** is a Magisk module — flash it *inside Kitsune Mask*. An **APK** is a normal app — install it directly. Mixing them up causes the *"unzip error"* you'll see in the video when HMA is flashed as a module by mistake.
+
+---
+
+## ↩️ Undo / Restore
+
+Changed your mind? This puts everything back exactly as it was — it restores every backup setup made.
+
+**Easiest:** download the ZIP (if you haven't), then double-click **`RestoreMuMuConfig.bat`**.
+
+**One command:**
 
 ```cmd
 cmd.exe /d /c "curl.exe -fL https://raw.githubusercontent.com/Jordan231111/mumu-magisk-1click/main/RestoreMuMuConfig.bat -o RestoreMuMuConfig.bat && RestoreMuMuConfig.bat"
 ```
 
-Restore copies every `*.bak` file created by setup back to its original filename and restores the current-user APK file associations that setup cleared.
+---
 
-## Patched Files
+## ❓ FAQ & troubleshooting
 
-Per instance, excluding folders ending in `-base`:
+#### Is this safe?
+Yes. It's plain, readable PowerShell — **no obfuscation, no encoded commands, no persistence, no firewall/hosts edits, no credential access.** It only edits MuMu's own config files (after backing each one up) and never touches anything outside MuMu. The bundled MuMu installer is the official one, [verified by automated checks](#-trust--how-the-installer-is-verified).
 
-| File | Keys |
-| --- | --- |
-| `customer_config.json` | `setting.other_setting.root_mode` -> `"1"` |
-| `customer_config.json` | `setting.disk_share.mode.choose` -> `"disk_share.mode.writable"` |
-| `vm_config.json` | `system_vdi.sharable` or `vm.system_vdi.sharable` -> `"Writable"` |
-| `shell_config.json` | `player.uu_remote.should_show` -> `"false"` when present |
-| `%APPDATA%\Netease\...\configs\nx_main.json` | `nxmain.setting.apk_association` -> `"0"` when present |
+#### My antivirus flagged it / "Windows protected your PC"
+Common for any admin script that stops emulator processes and edits config files — it's a false positive, not malware. Click **More info → Run anyway**, or temporarily allow the file. Everything it does is visible in [`scripts/MuMuConfig.ps1`](scripts/MuMuConfig.ps1).
 
-## Privacy Tweaks
+#### It says "No MuMu install found"
+MuMu 12 isn't installed where the tool can see it. Install it first ([Global download](https://www.mumuplayer.com/download/)), open it once, then re-run.
 
-The setup only changes privacy/debloat keys that already exist in MuMu's JSON. It does not create guessed JSON keys.
+#### It says "No instances were found"
+You need to **create an Android 12 instance** in MuMu's Multi-Instance Manager and **start it once** so its config files exist. Then close MuMu and re-run.
 
-Currently documented optional keys:
+#### Do I have to restart Windows?
+No. And the `ExecutionPolicy Bypass` the launcher uses applies **only to that one run** — it does not change any permanent Windows setting.
 
-| File | Key | Value |
+#### I have both Global and Chinese MuMu
+Global is patched by default. To patch both, run `Setup.bat --edition all`.
+
+#### Where do I type the one command?
+Press <kbd>Win</kbd>, type `cmd`, press Enter, paste the command, press Enter. (Or just use the [double-click method](#-quick-start-easiest--no-terminal) — no typing.)
+
+---
+
+## 🔧 Advanced & transparency
+
+<details id="-exactly-what-it-changes">
+<summary><b>📋 Exactly what it changes (and what it doesn't)</b></summary>
+
+<br>
+
+**Per instance** (folders ending in `-base` are skipped):
+
+| File | Key | Set to |
+| --- | --- | --- |
+| `customer_config.json` | `setting.other_setting.root_mode` | `"1"` (root on) |
+| `customer_config.json` | `setting.disk_share.mode.choose` | `"disk_share.mode.writable"` |
+| `vm_config.json` | `system_vdi.sharable` / `vm.system_vdi.sharable` | `"Writable"` |
+| `shell_config.json` | `player.uu_remote.should_show` | `"false"` (when present) |
+
+**Optional privacy/debloat keys** — only changed if they already exist; no keys are invented:
+
+| File | Key | Set to |
 | --- | --- | --- |
 | `customer_config.json` | `customer.apk_associate` | `"false"` |
 | `customer_config.json` | `customer.app_keptlive` | `"false"` |
@@ -112,106 +174,92 @@ Currently documented optional keys:
 | `customer_config.json` | `setting.other_setting.apk_association` | `"0"` |
 | `customer_config.json` | `setting.other_setting.app_keptlive` | `"0"` |
 | `customer_config.json` | `setting.other_setting.run_limitation` | `"0"` |
-| `%APPDATA%\Netease\...\configs\nx_main.json` | `nxmain.setting.apk_association` | `"0"` |
-| `shell_config.json` | `player.uu_remote.should_show` | `"false"` |
+| `…\Netease\…\configs\nx_main.json` | `nxmain.setting.apk_association` | `"0"` |
 
-For the Windows "Associate APK files" toggle, MuMu also writes current-user file associations. Setup clears `.apk`, `.xapk`, and `.apks` only if they currently point to MuMu classes such as `MuMuPlayerGlobal.apk`, then stores the previous value for restore.
+For the Windows **"Associate APK files"** behavior, MuMu also writes per-user file associations. Setup clears `.apk`, `.xapk`, and `.apks` **only if they currently point to MuMu**, and stores the previous value first so Restore can put it back.
 
-`run_limitation` is an existing MuMu config toggle. The script keeps it disabled when the key is present, but the exact MuMu behavior is not officially documented.
+**It does *not*:** add hosts/firewall rules, startup entries, services, or scheduled tasks; block `netease.com`/`easebar.com` (that breaks updates and login); run any silent installers; or use line-by-line text hacks (it parses real JSON).
 
-No `easebar.com` or `netease.com` network blocking is applied because that can break updates and login.
+</details>
 
-## Bundled Tools
+<details>
+<summary><b>🔍 How it finds your MuMu install</b></summary>
 
-The [`Tools/`](Tools/) directory contains utilities that can be useful after setting up Magisk:
+<br>
 
-- [app-release.apk](Tools/app-release.apk): Kitsune Magisk installer, a Magisk fork commonly used for emulators.
-- [Vector-v2.0-3043-Release.zip](Tools/Vector-v2.0-3043-Release.zip): [Vector](https://github.com/JingMatrix/Vector) framework for Zygisk module support (successor to LSPosed).
-- [NeoZygisk-v2.3-282-8b12252-release.zip](Tools/NeoZygisk-v2.3-282-8b12252-release.zip): NeoZygisk for Zygisk-based modules.
-- [HMA-OSS-oss-161-release.apk](Tools/HMA-OSS-oss-161-release.apk): [HMA-OSS](https://github.com/frknkrc44/HMA-OSS/releases/tag/oss-161) Hide My Applist app (install as APK; enable in Vector).
-- [MT_2.14.5-clone_MOD-V3-PREVIEW.apk](Tools/MT_2.14.5-clone_MOD-V3-PREVIEW.apk): MT Manager APK/file tool.
-- [core-patch-4.9.apk](Tools/core-patch-4.9.apk): CorePatch helper for Android package/signature workflows ([Core Patch 4.9](https://github.com/LSPosed/CorePatch/releases/tag/4.9)).
+- Reads the Windows uninstall registry first, including custom `InstallLocation` paths.
+- Falls back to known `Program Files\Netease` paths only if the registry lookup fails.
+- Patches every non-base instance under `{InstallRoot}\vms\*\configs`.
+- Also updates the user-level toggle in `%APPDATA%\Netease\MuMuPlayerGlobal\configs\nx_main.json` (or `MuMuPlayer` for Chinese) when present.
+- Creates a `.bak` next to each file before the first write; Restore copies those back.
 
-These tools are provided for convenience. Install them manually inside the MuMu instance after Magisk is running.
+This project is not pinned to any single MuMu build — it targets the MuMu 12 config schema and is covered by smoke tests. If a future release changes the keys, run with `--dry-run` first and [open an issue](https://github.com/Jordan231111/mumu-magisk-1click/issues) with the output.
 
-## Video Tutorials
+</details>
 
-Part 1, basic setup and Play Store:
+<details>
+<summary><b>⚙️ Command-line options</b></summary>
 
-https://www.youtube.com/watch?v=bBj8CE55lpk
+<br>
 
-Part 2, advanced setup and optimization:
+```cmd
+Setup.bat --dry-run            :: show what would change, write nothing
+Setup.bat --edition global     :: Global only
+Setup.bat --edition chinese    :: Chinese only
+Setup.bat --edition all        :: both editions
+```
 
-https://www.youtube.com/watch?v=XGNkyvmAckE
+The same flags work on `RestoreMuMuConfig.bat`. Run a dry-run first if you're unsure.
 
-## Visual Settings Guide
+</details>
 
-The screenshot folders are kept as references for users comparing Chinese and English MuMu UI labels. CPU/RAM allocation and FPS/performance settings should be adjusted for your own PC instead of copied blindly.
+<details>
+<summary><b>🔐 Trust — how the installer is verified</b></summary>
 
-| Setting | Chinese UI (`ChineseAssets/`) | English UI (`assets/`) |
-| --- | --- | --- |
-| Other Settings | ![Other Settings](ChineseAssets/MuMuPlayer_syw6Ig9jQV.png) | ![Other Settings](assets/OtherSettings.png) |
-| More Other Settings | ![More Settings](ChineseAssets/MuMuPlayer_80z4wORNeA.png) | ![More Settings](assets/otherSettings2.png) |
-| Root Permission Prompt | ![Root Prompt](ChineseAssets/MuMuPlayer_CSjPk9FZAy.png) | ![Root Prompt](assets/MuMuPlayer_CSjPk9FZAy.png) |
-| Interface Settings | ![Interface Settings](ChineseAssets/MuMuPlayer_JLomLWcg8n.png) | ![Interface Settings](assets/MuMuPlayer_JLomLWcg8n.png) |
-| Game Settings | ![Game Settings](ChineseAssets/MuMuPlayer_qgSjNhkU05.png) | ![Game Settings](assets/MuMuPlayer_qgSjNhkU05.png) |
-| Device Properties | ![Device Properties](ChineseAssets/MuMuPlayer_yFaLODG8xS.png) | ![Device Properties](assets/MuMuPlayer_yFaLODG8xS.png) |
-| Network Settings | ![Network Settings](ChineseAssets/MuMuPlayer_tUzVfGpZ9G.png) | ![Network Settings](assets/MuMuPlayer_tUzVfGpZ9G.png) |
-| Performance Monitor / FPS | ![Monitor](ChineseAssets/MuMuPlayer_9t5cRTMdC6.png) | ![Monitor](assets/MuMuPlayer_9t5cRTMdC6.png) |
-| Basic Settings | ![Basic Settings](ChineseAssets/MuMuPlayer_pAD1HH9j5I.png) | ![Basic Settings](assets/MuMuPlayer_pAD1HH9j5I.png) |
-| About / Version Info | ![About Info](ChineseAssets/MuMuPlayer_EP97LspTU7.png) | ![About Info](assets/MuMuPlayer_EP97LspTU7.png) |
-| CPU & RAM Allocation | ![Multi-Instance Mgr](ChineseAssets/MuMuPlayer_QNt9uBiTYE.png) | ![Multi-Instance Mgr](assets/MuMuPlayer_QNt9uBiTYE.png) |
+<br>
 
-## Antivirus Notes
-
-No project can guarantee that every antivirus product will avoid a false positive, especially for admin scripts that stop emulator processes and edit emulator config files. This repo is kept as transparent as possible: no encoded PowerShell, no obfuscation, no persistence, no credential access, no hosts/firewall edits, and no antivirus tampering. The committed installer is the official Global MuMu installer resolved by CI from MuMu's API.
-
-## Download Metadata
-
-The CI workflow resolves the current Global Windows installer through the official API:
+The bundled `MuMuInstaller_Global.exe` is the **official** Global installer. CI resolves it through MuMu's own API, follows the redirect chain, and fails unless the final URL is an `.exe` from `a11.gdl.netease.com` with a `200` response. It then downloads the file in CI and compares size + MD5 against the committed copy. Metadata is tracked in [installer-url.txt](installer-url.txt), and a scheduled job opens an update PR when MuMu ships a new version.
 
 ```text
 https://api.mumuplayer.com/api/website/download_version_info?usage=1
 https://api.mumuplayer.com/api/dl/win?channel=gw-win-download
 ```
 
-The workflow follows redirects and fails if the final chain does not include an `.exe` URL from `a11.gdl.netease.com` with a successful response. It also downloads the installer in CI and compares size/MD5 against `MuMuInstaller_Global.exe`.
+</details>
 
-Chinese installer discovery is intentionally separate and is not assumed to use the same Global channel.
+<details>
+<summary><b>🧪 Run the smoke tests (developers)</b></summary>
 
-## Smoke Tests
-
-Run:
+<br>
 
 ```cmd
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File tests\Smoke.Tests.ps1
 ```
 
-The tests create temporary Global and Chinese fixtures, write HKCU uninstall-registry test keys, verify Global-first discovery, setup, restore, and live Global download resolution. They do not install or launch MuMu in CI.
+The tests build temporary Global and Chinese fixtures, write test registry keys, and verify discovery, setup, restore, and live download resolution. They never install or launch MuMu.
 
-## Need Help?
+</details>
 
-Telegram: https://t.me/+6EreKfc983UzMjgx
+---
 
-## ❤️ Support The Project
+## 🆘 Need help?
 
-If this helped you, donations are appreciated and help keep the project maintained:
+Join the Telegram group: **https://t.me/+6EreKfc983UzMjgx**
 
-Ko-fi: https://ko-fi.com/yejordan
+## ❤️ Support the project
 
-## Credits
+If this saved you time, a small donation keeps it maintained — **[ko-fi.com/yejordan](https://ko-fi.com/yejordan)**. And a ⭐ on the repo genuinely helps!
 
-- Magisk Kitsune: https://github.com/HuskyDG/Magisk
-- Magisk upstream: https://github.com/topjohnwu/Magisk
-- Vector (successor to LSPosed): https://github.com/JingMatrix/Vector
-- HMA-OSS: https://github.com/frknkrc44/HMA-OSS
-- CorePatch: https://github.com/LSPosed/CorePatch
-- MuMu Player: https://www.mumuplayer.com/
+## 🙏 Credits
 
-## Disclaimer
+- [Magisk Kitsune](https://github.com/HuskyDG/Magisk) · [Magisk (upstream)](https://github.com/topjohnwu/Magisk)
+- [Vector](https://github.com/JingMatrix/Vector) (successor to LSPosed) · [Hide My Applist (HMA-OSS)](https://github.com/frknkrc44/HMA-OSS) · [CorePatch](https://github.com/LSPosed/CorePatch)
+- [MuMu Player](https://www.mumuplayer.com/)
 
-This tool is for educational and development use. Root access and writable system settings can affect emulator stability and security. Use it only on instances you are prepared to modify and restore.
+## ⚖️ Disclaimer
 
-## License
+For educational and development use. Root access and a writable system can affect emulator stability and security — only use it on instances you're prepared to modify and restore.
 
-See [LICENSE.md](LICENSE.md).
+## 📄 License
+
+[CC BY-NC-ND 4.0](LICENSE.md).
