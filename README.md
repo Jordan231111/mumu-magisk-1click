@@ -13,6 +13,36 @@ It finds your install automatically, backs up every file it touches, and has a o
 
 ---
 
+> [!NOTE]
+> This tool prepares the **Windows side** (the part that's tedious and easy to get wrong). The final step — installing Magisk *inside* Android — takes about two minutes and is covered in the [video walkthrough ↓](#-after-setup-install-magisk-inside-android). It does **not** install Magisk into Android for you.
+
+## ⚡ Quick start
+
+### 🟢 Option A — No terminal (recommended)
+
+Best for first-timers. The download includes the setup tool **and** every APK you'll need later.
+
+1. **[⬇️ Download the ZIP](https://github.com/Jordan231111/mumu-magisk-1click/archive/refs/heads/main.zip)**
+2. **Right-click the ZIP → Extract All.**
+3. Open the extracted folder and **double-click `Setup.bat`**.
+4. If Windows shows *"Windows protected your PC"*, click **More info → Run anyway** (it's an unsigned script — see [Is this safe?](#is-this-safe)).
+5. Click **Yes** on the admin prompt.
+6. When it says **`Done. Files changed: …`**, close the window and reopen MuMu. ✅
+
+### 💻 Option B — One command (faster)
+
+For anyone comfortable with a terminal. Press <kbd>Win</kbd>, type `cmd`, hit Enter, then paste this into **Command Prompt** (or **PowerShell**):
+
+```cmd
+cmd.exe /d /c "curl.exe -fL https://raw.githubusercontent.com/Jordan231111/mumu-magisk-1click/main/Setup.bat -o Setup.bat && Setup.bat"
+```
+
+Accept the admin prompt when it appears. This grabs **only** the setup script, so you'll still want the [bundled tools ↓](#-whats-bundled) for the in-Android steps.
+
+That's it for the Windows side. Next: [install Magisk inside Android ↓](#-after-setup-install-magisk-inside-android).
+
+---
+
 ## ✨ What you get
 
 - ✅ **Root mode + writable system** switched on for every instance, automatically.
@@ -21,37 +51,6 @@ It finds your install automatically, backs up every file it touches, and has a o
 - ✅ **Safe by design** — backs up every file before changing it, and the undo restores everything.
 - ✅ **Everything bundled** — Magisk Kitsune, Zygisk, Vector, Hide My Applist, MT Manager and more, all in one download.
 - ✅ **Transparent** — plain PowerShell, no obfuscation, no hidden network calls, no persistence. [See exactly what it changes ↓](#-exactly-what-it-changes)
-
-> [!NOTE]
-> This tool prepares the **Windows side** (the part that's tedious and easy to get wrong). The final step — installing Magisk *inside* Android — takes about two minutes and is covered in the [video walkthrough ↓](#-after-setup-install-magisk-inside-android). It does **not** install Magisk into Android for you.
-
----
-
-## ⚡ Quick start (easiest — no terminal)
-
-1. **[⬇️ Download the ZIP](https://github.com/Jordan231111/mumu-magisk-1click/archive/refs/heads/main.zip)** (this bundles the setup tool *and* all the APKs you'll need).
-2. **Right-click the ZIP → Extract All.**
-3. Open the extracted folder and **double-click `Setup.bat`**.
-4. If Windows shows *"Windows protected your PC"*, click **More info → Run anyway** (it's an unsigned script — see [Is this safe?](#is-this-safe)).
-5. Click **Yes** on the admin prompt.
-6. When it says **`Done. Files changed: …`**, close the window and reopen MuMu. ✅
-
-That's it for the Windows side. Next: [install Magisk inside Android ↓](#-after-setup-install-magisk-inside-android).
-
-<details>
-<summary><b>Prefer one command instead of downloading the ZIP?</b></summary>
-
-<br>
-
-Paste this into **PowerShell** or **Command Prompt** (Press <kbd>Win</kbd>, type `cmd`, hit Enter). It downloads and runs the setup for you:
-
-```cmd
-cmd.exe /d /c "curl.exe -fL https://raw.githubusercontent.com/Jordan231111/mumu-magisk-1click/main/Setup.bat -o Setup.bat && Setup.bat"
-```
-
-Accept the admin prompt when it appears. With this method you'll still want the [bundled tools ↓](#-whats-bundled) for the in-Android steps.
-
-</details>
 
 ---
 
@@ -144,7 +143,7 @@ No. And the `ExecutionPolicy Bypass` the launcher uses applies **only to that on
 Global is patched by default. To patch both, run `Setup.bat --edition all`.
 
 #### Where do I type the one command?
-Press <kbd>Win</kbd>, type `cmd`, press Enter, paste the command, press Enter. (Or just use the [double-click method](#-quick-start-easiest--no-terminal) — no typing.)
+Press <kbd>Win</kbd>, type `cmd`, press Enter, paste the command, press Enter. (Or just use the [double-click method](#-quick-start) — no typing.)
 
 ---
 
