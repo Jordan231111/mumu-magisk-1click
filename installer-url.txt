@@ -1,9 +1,9 @@
 Global MuMu installer resolved via official API.
-MetadataVersion=5.25.3
-MetadataUpdateTimeUtc=2026-05-09 06:56:58Z
-CdnFile=MuMu_5.0.11_gw-win-download_all_1770087078.exe
-ContentLength=5307104
-MD5=4ff1c593755cd0f59c1e101337600324
-ETag=4ff1c593755cd0f59c1e101337600324
-LastModified=Tue, 03 Feb 2026 02:54:18 GMT
+MetadataVersion=6.3.1
+MetadataUpdateTimeUtc=2026-07-21 06:15:09Z
+CdnFile=MuMu_6.0.1_gw-win-download_all_1783407295.exe
+ContentLength=6100936
+MD5=63d7274e3a2b37c4d873eccb37fd9449
+ETag=63d7274e3a2b37c4d873eccb37fd9449
+LastModified=Tue, 07 Jul 2026 06:58:09 GMT
 DownloadApi=https://api.mumuplayer.com/api/dl/win?channel=gw-win-download

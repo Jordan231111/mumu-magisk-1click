@@ -25,12 +25,14 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Resolve Global download URL
         shell: powershell
+        env:
+          ALLOW_STALE_INSTALLER: ${{ github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.update_installer == true) }}
         run: |
-          $json = & powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\MuMuConfig.ps1 -Action ResolveDownload --json
+          $json = & powershell.exe -NoProfile -ExecutionPolicy RemoteSigned -File .\scripts\MuMuConfig.ps1 -Action ResolveDownload --json
           if ($LASTEXITCODE -ne 0) {
             throw "ResolveDownload failed: $json"
           }
@@ -47,23 +49,27 @@ jobs:
           }
 
           $committed = Get-Item -LiteralPath .\MuMuInstaller_Global.exe
-          if ($committed.Length -ne [int64]$info.content_length) {
+          $requireCurrentInstaller = $env:ALLOW_STALE_INSTALLER -ne 'true'
+          if ($requireCurrentInstaller -and $committed.Length -ne [int64]$info.content_length) {
             throw "Committed installer size is stale. Expected $($info.content_length), got $($committed.Length). Run DownloadInstaller and commit the new EXE."
           }
 
           $committedMd5 = (Get-FileHash -LiteralPath .\MuMuInstaller_Global.exe -Algorithm MD5).Hash.ToLowerInvariant()
-          if ($info.final_md5_hex -and $committedMd5 -ne $info.final_md5_hex.ToLowerInvariant()) {
+          if ($requireCurrentInstaller -and $info.final_md5_hex -and $committedMd5 -ne $info.final_md5_hex.ToLowerInvariant()) {
             throw "Committed installer MD5 is stale. Expected $($info.final_md5_hex), got $committedMd5. Run DownloadInstaller and commit the new EXE."
           }
 
           $tempExe = Join-Path $env:RUNNER_TEMP 'MuMuInstaller_Global.exe'
           $tempMetadata = Join-Path $env:RUNNER_TEMP 'installer-url.txt'
-          $downloadJson = & powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\MuMuConfig.ps1 -Action DownloadInstaller --output $tempExe --metadata $tempMetadata --json
+          $downloadJson = & powershell.exe -NoProfile -ExecutionPolicy RemoteSigned -File .\scripts\MuMuConfig.ps1 -Action DownloadInstaller --output $tempExe --metadata $tempMetadata --json
           if ($LASTEXITCODE -ne 0) {
             throw "DownloadInstaller failed: $downloadJson"
           }
           $download = $downloadJson | ConvertFrom-Json
-          if ($download.md5 -ne $committedMd5) {
+          if ($info.final_md5_hex -and $download.md5 -ne $info.final_md5_hex.ToLowerInvariant()) {
+            throw "Downloaded installer does not match MuMu metadata. Downloaded $($download.md5), expected $($info.final_md5_hex)."
+          }
+          if ($requireCurrentInstaller -and $download.md5 -ne $committedMd5) {
             throw "Downloaded installer does not match committed installer. Downloaded $($download.md5), committed $committedMd5."
           }
 
@@ -83,12 +89,12 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Run smoke tests
         shell: powershell
         run: |
-          powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\tests\Smoke.Tests.ps1
+          powershell.exe -NoProfile -ExecutionPolicy RemoteSigned -File .\tests\Smoke.Tests.ps1
 
   update-installer-pr:
     name: Update installer branch
@@ -100,7 +106,9 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
 
       - name: Check for installer update
         id: installer
@@ -108,7 +116,7 @@ jobs:
         run: |
           $tempExe = Join-Path $env:RUNNER_TEMP 'MuMuInstaller_Global.exe'
           $tempMetadata = Join-Path $env:RUNNER_TEMP 'installer-url.txt'
-          $json = & powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\MuMuConfig.ps1 -Action DownloadInstaller --output $tempExe --metadata $tempMetadata --json
+          $json = & powershell.exe -NoProfile -ExecutionPolicy RemoteSigned -File .\scripts\MuMuConfig.ps1 -Action DownloadInstaller --output $tempExe --metadata $tempMetadata --json
           if ($LASTEXITCODE -ne 0) {
             throw "DownloadInstaller failed: $json"
           }
@@ -118,24 +126,38 @@ jobs:
           if (Test-Path -LiteralPath .\MuMuInstaller_Global.exe -PathType Leaf) {
             $committedMd5 = (Get-FileHash -LiteralPath .\MuMuInstaller_Global.exe -Algorithm MD5).Hash.ToLowerInvariant()
           }
+          $binaryChanged = $download.md5 -ne $committedMd5
 
-          if ($download.md5 -eq $committedMd5) {
+          $metadataChanged = -not (Test-Path -LiteralPath .\installer-url.txt -PathType Leaf)
+          if (-not $metadataChanged) {
+            $newMetadataSha256 = (Get-FileHash -LiteralPath $tempMetadata -Algorithm SHA256).Hash
+            $committedMetadataSha256 = (Get-FileHash -LiteralPath .\installer-url.txt -Algorithm SHA256).Hash
+            $metadataChanged = $newMetadataSha256 -ne $committedMetadataSha256
+          }
+
+          if (-not $binaryChanged -and -not $metadataChanged) {
             "changed=false" >> $env:GITHUB_OUTPUT
             "### Global MuMu installer update" >> $env:GITHUB_STEP_SUMMARY
             "" >> $env:GITHUB_STEP_SUMMARY
-            "No installer binary change detected." >> $env:GITHUB_STEP_SUMMARY
+            "No installer or metadata change detected." >> $env:GITHUB_STEP_SUMMARY
             "- MD5: $committedMd5" >> $env:GITHUB_STEP_SUMMARY
             exit 0
           }
 
-          Copy-Item -LiteralPath $tempExe -Destination .\MuMuInstaller_Global.exe -Force
-          Copy-Item -LiteralPath $tempMetadata -Destination .\installer-url.txt -Force
+          if ($binaryChanged) {
+            Copy-Item -LiteralPath $tempExe -Destination .\MuMuInstaller_Global.exe -Force
+          }
+          if ($metadataChanged) {
+            Copy-Item -LiteralPath $tempMetadata -Destination .\installer-url.txt -Force
+          }
 
           "changed=true" >> $env:GITHUB_OUTPUT
           "md5=$($download.md5)" >> $env:GITHUB_OUTPUT
           "### Global MuMu installer update" >> $env:GITHUB_STEP_SUMMARY
           "" >> $env:GITHUB_STEP_SUMMARY
-          "Installer binary changed; an update branch will be pushed." >> $env:GITHUB_STEP_SUMMARY
+          "Installer or metadata changed; an update branch will be pushed." >> $env:GITHUB_STEP_SUMMARY
+          "- Binary changed: $binaryChanged" >> $env:GITHUB_STEP_SUMMARY
+          "- Metadata changed: $metadataChanged" >> $env:GITHUB_STEP_SUMMARY
           "- Old MD5: $committedMd5" >> $env:GITHUB_STEP_SUMMARY
           "- New MD5: $($download.md5)" >> $env:GITHUB_STEP_SUMMARY
 

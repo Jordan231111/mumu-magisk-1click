@@ -885,26 +885,29 @@ function Resolve-TargetInstance {
     $android12 = @($instances | Where-Object { [string]$_.android_version -eq '12.0' })
     if ($android12.Count -eq 0) { throw 'No MuMu Android 12 instance was found.' }
 
-    $running = @($instances | Where-Object { [bool]$_.is_android_started })
-    if ($running.Count -gt 0) {
-        $runningAndroid12 = @($running | Where-Object { [string]$_.android_version -eq '12.0' })
-        if ($runningAndroid12.Count -eq 0) {
-            $runningText = ($running | ForEach-Object { "$($_.name) (index $($_.index), Android $($_.android_version))" }) -join ', '
-            throw "The last/current running MuMu instance is not Android 12: $runningText"
-        }
-        if ($runningAndroid12.Count -eq 1) {
-            Write-Step "Auto-selected running instance $($runningAndroid12[0].index): $($runningAndroid12[0].name)"
-            return [string]$runningAndroid12[0].index
-        }
-
-        $ranked = @($runningAndroid12 | ForEach-Object {
+    $active = @($instances | Where-Object {
+        [bool]$_.is_process_started -or [bool]$_.is_android_started -or [int]$_.headless_pid -gt 0
+    })
+    if ($active.Count -gt 0) {
+        $ranked = @($active | ForEach-Object {
             $started = [DateTime]::MinValue
-            if ($_.headless_pid) {
-                try { $started = (Get-Process -Id ([int]$_.headless_pid) -ErrorAction Stop).StartTime } catch { }
+            foreach ($processId in @($_.pid, $_.headless_pid) | Where-Object { [int]$_ -gt 0 } | Select-Object -Unique) {
+                try {
+                    $candidateStart = (Get-Process -Id ([int]$processId) -ErrorAction Stop).StartTime
+                    if ($candidateStart -gt $started) { $started = $candidateStart }
+                } catch { }
             }
-            [pscustomobject]@{ Info = $_; Started = $started }
-        } | Sort-Object Started -Descending)
+            [pscustomobject]@{
+                Info       = $_
+                Started    = $started
+                LastLaunch = [int64]$_.last_launch_timestamp
+                Created    = [int64]$_.created_timestamp
+            }
+        } | Sort-Object Started, LastLaunch, Created -Descending)
         $selected = $ranked[0].Info
+        if ([string]$selected.android_version -ne '12.0') {
+            throw "The most recently started MuMu instance is $($selected.name) (index $($selected.index)), but it uses Android $($selected.android_version). This workflow currently supports Android 12 only."
+        }
         Write-Step "Auto-selected most recently started instance $($selected.index): $($selected.name)"
         return [string]$selected.index
     }
@@ -1114,7 +1117,7 @@ try {
     Invoke-Main @args
     exit 0
 } catch {
-    Write-Error $_.Exception.Message
-    if ($env:MUMU_DEBUG) { Write-Error $_.ScriptStackTrace }
+    [Console]::Error.WriteLine($_.Exception.Message)
+    if ($env:MUMU_DEBUG) { [Console]::Error.WriteLine($_.ScriptStackTrace) }
     exit 1
 }

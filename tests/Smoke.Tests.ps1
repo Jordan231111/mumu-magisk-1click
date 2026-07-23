@@ -345,12 +345,12 @@ try {
     $oldErrorActionPreference = $ErrorActionPreference
     try {
         $ErrorActionPreference = 'Continue'
-    $missingInstance = & powershell.exe -NoProfile -ExecutionPolicy RemoteSigned -File $kitsuneScriptPath prepare --instance nope 2>&1
+        $missingInstance = & powershell.exe -NoProfile -ExecutionPolicy RemoteSigned -File $kitsuneScriptPath prepare --instance nope 2>&1
     } finally {
         $ErrorActionPreference = $oldErrorActionPreference
     }
     Assert-True ($LASTEXITCODE -eq 1) 'Kitsune helper accepted a nonnumeric instance override.'
-    Assert-True (($missingInstance -join "`n") -match '--instance must be a numeric') 'Kitsune invalid-instance error was not actionable.'
+    Assert-True (($missingInstance -join "`n") -match '--instance\s+must\s+be\s+a\s+numeric') 'Kitsune invalid-instance error was not actionable.'
 
     $apkSha256 = (Get-FileHash -LiteralPath $kitsuneApkPath -Algorithm SHA256).Hash.ToLowerInvariant()
     Assert-True ($apkSha256 -eq 'fac319d2de262fcfff1684e13e1a5c61c486d2a773a7a8ffcfdbfe6f763a7fd4') 'Bundled Kitsune APK is not the pinned v31.0-25fa2159 asset.'
