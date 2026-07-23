@@ -14,7 +14,7 @@ It finds your install automatically, backs up every file it touches, and has a o
 ---
 
 > [!NOTE]
-> This tool prepares the **Windows side** (the part that's tedious and easy to get wrong). The final step — installing Magisk *inside* Android — takes about two minutes and is covered in the [video walkthrough ↓](#-after-setup-install-magisk-inside-android). It does **not** install Magisk into Android for you.
+> `Setup.bat` prepares MuMu's Windows configuration. The guarded `Kitsune.bat install` workflow also handles the Android-side system installation, pausing only for Kitsune's required on-screen confirmation.
 
 ## ⚡ Quick start
 
@@ -34,12 +34,14 @@ Best for first-timers. The download includes the setup tool **and** every APK yo
 For anyone comfortable with a terminal. Press <kbd>Win</kbd>, type `cmd`, hit Enter, then paste this into **Command Prompt** (or **PowerShell**):
 
 ```cmd
-cmd.exe /d /c "curl.exe -fL https://raw.githubusercontent.com/Jordan231111/mumu-magisk-1click/main/Setup.bat -o Setup.bat && Setup.bat"
+cmd.exe /d /c "if not exist scripts mkdir scripts && curl.exe -fL https://raw.githubusercontent.com/Jordan231111/mumu-magisk-1click/main/Setup.bat -o Setup.bat && curl.exe -fL https://raw.githubusercontent.com/Jordan231111/mumu-magisk-1click/main/scripts/MuMuConfig.ps1 -o scripts\MuMuConfig.ps1 && Setup.bat"
 ```
 
 Accept the admin prompt when it appears. This grabs **only** the setup script, so you'll still want the [bundled tools ↓](#-whats-bundled) for the in-Android steps.
 
 That's it for the Windows side. Next: [install Magisk inside Android ↓](#-after-setup-install-magisk-inside-android).
+
+Both source files are downloaded before elevation. The checked-in batch launchers use process-scoped `RemoteSigned`; they do not download replacement code after UAC or permanently change Windows policy.
 
 ---
 
@@ -51,6 +53,18 @@ That's it for the Windows side. Next: [install Magisk inside Android ↓](#-afte
 - ✅ **Safe by design** — backs up every file before changing it, and the undo restores everything.
 - ✅ **Everything bundled** — Magisk Kitsune, Zygisk, Vector, Hide My Applist, MT Manager and more, all in one download.
 - ✅ **Transparent** — plain PowerShell, no obfuscation, no hidden network calls, no persistence. [See exactly what it changes ↓](#-exactly-what-it-changes)
+
+### Verified Kitsune system install
+
+Use a complete clone or release archive so every reviewed script and the pinned APK are present. Open the Android 12 instance you want to modify; the workflow selects the one currently running, or the most recently launched instance when none is running. If several are running, it uses the most recently started one and prints the selected name and index.
+
+Run one command from the extracted folder:
+
+```cmd
+Kitsune.bat install
+```
+
+The console pauses for Kitsune's Direct Install confirmation, then verifies the system-mode files before disabling MuMu vendor root. Cleanup removes a vendor `su` only when it matches the hash captured from that instance, runs in a private mount namespace, and cold-boots to verify exactly one stable Magisk daemon. `--instance N` remains an optional troubleshooting override; normal users do not need an index.
 
 ---
 
@@ -65,6 +79,14 @@ You need just three things:
 
 > 💡 Chinese MuMu works too. If both editions are installed, Global is patched by default — use `Setup.bat --edition all` to do both.
 
+The Kitsune workflow intentionally supports Android 12 only. MuMu Global 6.3.1's Android 15 root toggle exposes its own KernelSU implementation, and [MuMu lists Magisk as unsupported on Android 15](https://www.mumuplayer.com/help/win/how-to-upgrade-mumuplayer.html). If Android 15 is current or most recent, the tool exits before stopping or changing it.
+
+### MuMu updater path repair
+
+On MuMu Global 6.3.1, an observed official V1-to-V2 migration installed engine bases under `nx_device\12.0\vms` and `nx_device\15.0\vms` while manager-generated instance metadata referenced the newly configured `{InstallRoot}\vms` root. That mismatch caused launch failure `VERR_PATH_NOT_FOUND`; it was not caused by an Android guest patch.
+
+The repair discovers configured engine/VMS paths, validates the VDI header, and creates a junction only for one unambiguous engine-local base. Existing old-layout bases remain in place; invalid, outside-root, or ambiguous targets fail closed.
+
 ---
 
 ## 📦 What's bundled
@@ -73,7 +95,7 @@ Everything you need after rooting is already in the [`Tools/`](Tools/) folder �
 
 | Tool | What it's for |
 | --- | --- |
-| [Magisk Kitsune](Tools/app-release.apk) | The root manager. A [Magisk fork](https://github.com/HuskyDG/Magisk) tuned for emulators. **Install this first.** |
+| [Magisk Kitsune](Tools/app-release.apk) | Exact [v31.0-25fa2159](https://github.com/Jordan231111/KitsuneMagisk/releases/tag/v31.0-25fa2159) APK (`31.0-kitsune`, version code `31000`). **Install this first.** |
 | [NeoZygisk](Tools/NeoZygisk-v2.3-282-8b12252-release.zip) | Zygisk engine — required for most modern root modules. |
 | [Vector](Tools/Vector-v2.0-3043-Release.zip) | Module framework (the [successor to LSPosed](https://github.com/JingMatrix/Vector)). |
 | [Hide My Applist (HMA-OSS)](Tools/HMA-OSS-oss-161-release.apk) | Hides root from apps that look for it. [Source](https://github.com/frknkrc44/HMA-OSS). Install the APK, then enable it in Vector. |
@@ -117,7 +139,7 @@ Changed your mind? This puts everything back exactly as it was — it restores e
 **One command:**
 
 ```cmd
-cmd.exe /d /c "curl.exe -fL https://raw.githubusercontent.com/Jordan231111/mumu-magisk-1click/main/RestoreMuMuConfig.bat -o RestoreMuMuConfig.bat && RestoreMuMuConfig.bat"
+cmd.exe /d /c "if not exist scripts mkdir scripts && curl.exe -fL https://raw.githubusercontent.com/Jordan231111/mumu-magisk-1click/main/RestoreMuMuConfig.bat -o RestoreMuMuConfig.bat && curl.exe -fL https://raw.githubusercontent.com/Jordan231111/mumu-magisk-1click/main/scripts/MuMuConfig.ps1 -o scripts\MuMuConfig.ps1 && RestoreMuMuConfig.bat"
 ```
 
 ---
@@ -137,7 +159,7 @@ MuMu 12 isn't installed where the tool can see it. Install it first ([Global dow
 You need to **create an Android 12 instance** in MuMu's Multi-Instance Manager and **start it once** so its config files exist. Then close MuMu and re-run.
 
 #### Do I have to restart Windows?
-No. And the `ExecutionPolicy Bypass` the launcher uses applies **only to that one run** — it does not change any permanent Windows setting.
+No. The launchers use process-scoped `RemoteSigned`; they do not change any permanent Windows setting.
 
 #### I have both Global and Chinese MuMu
 Global is patched by default. To patch both, run `Setup.bat --edition all`.
@@ -188,6 +210,9 @@ For the Windows **"Associate APK files"** behavior, MuMu also writes per-user fi
 
 - Reads the Windows uninstall registry first, including custom `InstallLocation` paths.
 - Falls back to known `Program Files\Netease` paths only if the registry lookup fails.
+- Reads `nx_device\*\configs\install_config.json` instead of assuming one engine directory or VMS location.
+- Repairs a migrated base path only after validating one exact engine-local VDI candidate.
+- Selects the running Android 12 instance, or the most recently launched instance when none is running.
 - Patches every non-base instance under `{InstallRoot}\vms\*\configs`.
 - Also updates the user-level toggle in `%APPDATA%\Netease\MuMuPlayerGlobal\configs\nx_main.json` (or `MuMuPlayer` for Chinese) when present.
 - Creates a `.bak` next to each file before the first write; Restore copies those back.
@@ -219,6 +244,8 @@ The same flags work on `RestoreMuMuConfig.bat`. Run a dry-run first if you're un
 
 The bundled `MuMuInstaller_Global.exe` is the **official** Global installer. CI resolves it through MuMu's own API, follows the redirect chain, and fails unless the final URL is an `.exe` from `a11.gdl.netease.com` with a `200` response. It then downloads the file in CI and compares size + MD5 against the committed copy. Metadata is tracked in [installer-url.txt](installer-url.txt), and a scheduled job opens an update PR when MuMu ships a new version.
 
+No project can guarantee that every antivirus product will avoid a false positive, especially for admin scripts that stop emulator processes and edit emulator config files. This repo is kept as transparent as possible: no encoded PowerShell, VBS elevation helper, random temporary downloader, post-elevation self-update, obfuscation, persistence, credential access, hosts/firewall edits, antivirus exclusion, or antivirus tampering. Network downloads in the README are explicit and complete before the standard UAC prompt. The committed installer is the official Global MuMu installer resolved by CI from MuMu's API.
+
 ```text
 https://api.mumuplayer.com/api/website/download_version_info?usage=1
 https://api.mumuplayer.com/api/dl/win?channel=gw-win-download
@@ -232,7 +259,7 @@ https://api.mumuplayer.com/api/dl/win?channel=gw-win-download
 <br>
 
 ```cmd
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File tests\Smoke.Tests.ps1
+powershell.exe -NoProfile -ExecutionPolicy RemoteSigned -File tests\Smoke.Tests.ps1
 ```
 
 The tests build temporary Global and Chinese fixtures, write test registry keys, and verify discovery, setup, restore, and live download resolution. They never install or launch MuMu.
@@ -251,7 +278,7 @@ If this saved you time, a small donation keeps it maintained — **[ko-fi.com/ye
 
 ## 🙏 Credits
 
-- [Magisk Kitsune](https://github.com/HuskyDG/Magisk) · [Magisk (upstream)](https://github.com/topjohnwu/Magisk)
+- [Magisk Kitsune v31.0-25fa2159](https://github.com/Jordan231111/KitsuneMagisk/releases/tag/v31.0-25fa2159) · [Magisk (upstream)](https://github.com/topjohnwu/Magisk)
 - [Vector](https://github.com/JingMatrix/Vector) (successor to LSPosed) · [Hide My Applist (HMA-OSS)](https://github.com/frknkrc44/HMA-OSS) · [CorePatch](https://github.com/LSPosed/CorePatch)
 - [MuMu Player](https://www.mumuplayer.com/)
 

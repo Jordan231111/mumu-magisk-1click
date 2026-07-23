@@ -249,7 +249,14 @@ function Resolve-InstallRootCandidate {
         $current = $start
         for ($i = 0; $i -lt 8 -and -not [string]::IsNullOrWhiteSpace($current); $i++) {
             $vmsPath = Join-ChildPath -Path $current -Child 'vms'
-            if (Test-Path -LiteralPath $vmsPath -PathType Container) {
+            $nxMainPath = Join-ChildPath -Path $current -Child 'nx_main'
+            $nxDevicePath = Join-ChildPath -Path $current -Child 'nx_device'
+            $legacyShellPath = Join-ChildPath -Path $current -Child 'shell'
+            if ((Test-Path -LiteralPath $vmsPath -PathType Container) -or
+                ((Test-Path -LiteralPath $nxMainPath -PathType Container) -and
+                 (Test-Path -LiteralPath $nxDevicePath -PathType Container)) -or
+                ((Test-Path -LiteralPath $legacyShellPath -PathType Container) -and
+                 (Test-Path -LiteralPath $nxDevicePath -PathType Container))) {
                 return [System.IO.Path]::GetFullPath($current).TrimEnd('\')
             }
 
@@ -268,6 +275,94 @@ function Resolve-InstallRootCandidate {
     return $null
 }
 
+function Get-InstallConfigCandidates {
+    param([string]$InstallRoot)
+
+    $result = New-Object System.Collections.Generic.List[string]
+    foreach ($relative in @('configs\main\install_config.json', 'configs\install_config.json')) {
+        $path = Join-ChildPath -Path $InstallRoot -Child $relative
+        if (Test-Path -LiteralPath $path -PathType Leaf) {
+            [void]$result.Add($path)
+        }
+    }
+
+    $nxDeviceRoot = Join-ChildPath -Path $InstallRoot -Child 'nx_device'
+    if (Test-Path -LiteralPath $nxDeviceRoot -PathType Container) {
+        foreach ($engine in (Get-ChildItem -LiteralPath $nxDeviceRoot -Directory -ErrorAction SilentlyContinue)) {
+            $path = Join-ChildPath -Path $engine.FullName -Child 'configs\install_config.json'
+            if (Test-Path -LiteralPath $path -PathType Leaf) {
+                [void]$result.Add($path)
+            }
+        }
+    }
+
+    return @($result | Select-Object -Unique)
+}
+
+function Resolve-MuMuVmsPath {
+    param([string]$InstallRoot)
+
+    $candidates = New-Object System.Collections.Generic.List[object]
+    foreach ($configPath in (Get-InstallConfigCandidates -InstallRoot $InstallRoot)) {
+        try {
+            $json = Get-Content -LiteralPath $configPath -Raw | ConvertFrom-Json
+            $enginesProperty = $json.PSObject.Properties['engines']
+            if (-not $enginesProperty) { continue }
+
+            foreach ($engineProperty in $enginesProperty.Value.PSObject.Properties) {
+                $vmsProperty = $engineProperty.Value.PSObject.Properties['vms']
+                if (-not $vmsProperty) { continue }
+                $installDirProperty = $vmsProperty.Value.PSObject.Properties['install_dir']
+                if (-not $installDirProperty) { continue }
+
+                $configuredPath = Normalize-PathCandidate ([string]$installDirProperty.Value)
+                if ([string]::IsNullOrWhiteSpace($configuredPath)) { continue }
+                if (-not [System.IO.Path]::IsPathRooted($configuredPath)) {
+                    $configuredPath = Join-ChildPath -Path $InstallRoot -Child $configuredPath
+                }
+                if (-not (Test-Path -LiteralPath $configuredPath -PathType Container)) { continue }
+
+                $fullPath = [System.IO.Path]::GetFullPath($configuredPath).TrimEnd('\')
+                $instanceCount = @(
+                    Get-ChildItem -LiteralPath $fullPath -Directory -ErrorAction SilentlyContinue |
+                        Where-Object { $_.Name -notmatch '-base$' -and (Test-Path -LiteralPath (Join-ChildPath $_.FullName 'configs') -PathType Container) }
+                ).Count
+                [void]$candidates.Add([pscustomobject]@{
+                    path           = $fullPath
+                    instance_count = $instanceCount
+                    configured     = $true
+                })
+            }
+        } catch {
+            Write-Log "Ignoring unreadable MuMu install config '$configPath': $($_.Exception.Message)"
+        }
+    }
+
+    $fallback = Join-ChildPath -Path $InstallRoot -Child 'vms'
+    if (Test-Path -LiteralPath $fallback -PathType Container) {
+        $fallback = [System.IO.Path]::GetFullPath($fallback).TrimEnd('\')
+        $instanceCount = @(
+            Get-ChildItem -LiteralPath $fallback -Directory -ErrorAction SilentlyContinue |
+                Where-Object { $_.Name -notmatch '-base$' -and (Test-Path -LiteralPath (Join-ChildPath $_.FullName 'configs') -PathType Container) }
+        ).Count
+        [void]$candidates.Add([pscustomobject]@{
+            path           = $fallback
+            instance_count = $instanceCount
+            configured     = $false
+        })
+    }
+
+    $selected = @(
+        $candidates |
+            Group-Object { $_.path.ToLowerInvariant() } |
+            ForEach-Object { $_.Group | Sort-Object instance_count, configured -Descending | Select-Object -First 1 } |
+            Sort-Object instance_count, configured -Descending
+    ) | Select-Object -First 1
+
+    if ($selected) { return $selected.path }
+    return $null
+}
+
 function New-InstallObject {
     param(
         [string]$Edition,
@@ -278,8 +373,8 @@ function New-InstallObject {
 
     if (-not $InstallRoot) { return $null }
 
-    $vmsPath = Join-ChildPath -Path $InstallRoot -Child 'vms'
-    if (-not (Test-Path -LiteralPath $vmsPath -PathType Container)) {
+    $vmsPath = Resolve-MuMuVmsPath -InstallRoot $InstallRoot
+    if ([string]::IsNullOrWhiteSpace($vmsPath)) {
         return $null
     }
 
@@ -932,6 +1027,134 @@ function Get-InstallLevelConfigFiles {
     return $files
 }
 
+function Test-VdiImageFile {
+    param([string]$Path)
+
+    if (-not (Test-Path -LiteralPath $Path -PathType Leaf)) { return $false }
+
+    $stream = $null
+    try {
+        $stream = [System.IO.File]::Open($Path, [System.IO.FileMode]::Open, [System.IO.FileAccess]::Read, [System.IO.FileShare]::ReadWrite)
+        $buffer = New-Object byte[] 64
+        $read = $stream.Read($buffer, 0, $buffer.Length)
+        if ($read -lt 40) { return $false }
+        $header = [System.Text.Encoding]::ASCII.GetString($buffer, 0, $read)
+        return $header.StartsWith('<<< Oracle VM VirtualBox Disk Image >>>', [System.StringComparison]::Ordinal)
+    } catch {
+        return $false
+    } finally {
+        if ($stream) { $stream.Dispose() }
+    }
+}
+
+function Get-MuMuEngineBaseImages {
+    param([string]$InstallRoot)
+
+    $result = New-Object System.Collections.Generic.List[object]
+    $nxDeviceRoot = Join-ChildPath -Path $InstallRoot -Child 'nx_device'
+    if (-not (Test-Path -LiteralPath $nxDeviceRoot -PathType Container)) { return @() }
+
+    foreach ($engine in (Get-ChildItem -LiteralPath $nxDeviceRoot -Directory -ErrorAction SilentlyContinue)) {
+        $engineVms = Join-ChildPath -Path $engine.FullName -Child 'vms'
+        if (-not (Test-Path -LiteralPath $engineVms -PathType Container)) { continue }
+
+        foreach ($base in (Get-ChildItem -LiteralPath $engineVms -Directory -ErrorAction SilentlyContinue | Where-Object { $_.Name -match '-base$' })) {
+            $systemVdi = Join-ChildPath -Path $base.FullName -Child 'system.vdi'
+            if (-not (Test-Path -LiteralPath $systemVdi -PathType Leaf)) { continue }
+            [void]$result.Add([pscustomobject]@{
+                base_name  = $base.Name
+                engine     = $engine.Name
+                actual_dir = [System.IO.Path]::GetFullPath($base.FullName).TrimEnd('\')
+                system_vdi = [System.IO.Path]::GetFullPath($systemVdi)
+                valid_vdi  = (Test-VdiImageFile -Path $systemVdi)
+            })
+        }
+    }
+
+    return $result
+}
+
+function Repair-MuMuBaseImagePaths {
+    param($Install)
+
+    $results = New-Object System.Collections.Generic.List[object]
+    $installRoot = [System.IO.Path]::GetFullPath([string]$Install.install_root).TrimEnd('\')
+    $vmsRoot = [System.IO.Path]::GetFullPath([string]$Install.vms_path).TrimEnd('\')
+    $allowedEnginePrefix = Join-ChildPath -Path $installRoot -Child 'nx_device'
+    $allowedEnginePrefix = [System.IO.Path]::GetFullPath($allowedEnginePrefix).TrimEnd('\') + '\'
+
+    $groups = @(Get-MuMuEngineBaseImages -InstallRoot $installRoot | Group-Object { $_.base_name.ToLowerInvariant() })
+    foreach ($group in $groups) {
+        $matches = @($group.Group)
+        $baseName = [string]$matches[0].base_name
+        $expectedDir = Join-ChildPath -Path $vmsRoot -Child $baseName
+        $expectedVdi = Join-ChildPath -Path $expectedDir -Child 'system.vdi'
+        $existingItem = Get-Item -LiteralPath $expectedDir -Force -ErrorAction SilentlyContinue
+
+        if ($existingItem) {
+            if (-not (Test-VdiImageFile -Path $expectedVdi)) {
+                throw "MuMu base path is occupied but has no valid system.vdi: $expectedDir"
+            }
+            $existingTarget = $null
+            if ($existingItem.LinkType) {
+                if ($existingItem.LinkType -ne 'Junction' -or @($existingItem.Target).Count -ne 1) {
+                    throw "MuMu base path is an unsupported reparse point: $expectedDir"
+                }
+                $existingTarget = [System.IO.Path]::GetFullPath([string](@($existingItem.Target)[0])).TrimEnd('\')
+                if (-not ($existingTarget + '\').StartsWith($allowedEnginePrefix, [System.StringComparison]::OrdinalIgnoreCase)) {
+                    throw "MuMu base junction points outside nx_device: $expectedDir -> $existingTarget"
+                }
+            }
+            [void]$results.Add([pscustomobject]@{
+                base_name    = $baseName
+                expected_dir = $expectedDir
+                actual_dir   = $existingTarget
+                status       = 'healthy'
+                changed      = $false
+                would_change = $false
+            })
+            continue
+        }
+
+        if ($matches.Count -ne 1) {
+            throw "Refusing to repair ambiguous MuMu base '$baseName': found $($matches.Count) engine-local candidates."
+        }
+
+        $candidate = $matches[0]
+        if (-not ([string]$candidate.actual_dir).StartsWith($allowedEnginePrefix, [System.StringComparison]::OrdinalIgnoreCase)) {
+            throw "Refusing MuMu base target outside nx_device: $($candidate.actual_dir)"
+        }
+        if (-not $candidate.valid_vdi) {
+            throw "Refusing MuMu base target with an invalid VDI header: $($candidate.system_vdi)"
+        }
+
+        if ($script:Options.DryRun) {
+            $status = 'would-create-junction'
+        } else {
+            New-Item -ItemType Junction -Path $expectedDir -Target $candidate.actual_dir -ErrorAction Stop | Out-Null
+            $created = Get-Item -LiteralPath $expectedDir -Force -ErrorAction Stop
+            $target = [System.IO.Path]::GetFullPath([string](@($created.Target)[0])).TrimEnd('\')
+            if ($created.LinkType -ne 'Junction' -or
+                $target -ne ([System.IO.Path]::GetFullPath([string]$candidate.actual_dir).TrimEnd('\')) -or
+                -not (Test-VdiImageFile -Path $expectedVdi)) {
+                throw "MuMu base junction verification failed: $expectedDir"
+            }
+            $status = 'created-junction'
+        }
+
+        [void]$results.Add([pscustomobject]@{
+            base_name    = $baseName
+            expected_dir = $expectedDir
+            actual_dir   = $candidate.actual_dir
+            status       = $status
+            changed      = (-not $script:Options.DryRun)
+            would_change = $true
+        })
+    }
+
+    return $results
+}
+
 function Get-UserConfigTargets {
     param($Install)
 
@@ -1194,6 +1417,15 @@ function Invoke-SetupInstall {
         Write-Log "Version from registry: $($Install.display_version)"
     }
 
+    $basePathResults = @(Repair-MuMuBaseImagePaths -Install $Install)
+    foreach ($basePathResult in $basePathResults) {
+        if ($basePathResult.status -eq 'created-junction') {
+            Write-Log "[MuMu base] Repaired $($basePathResult.expected_dir) -> $($basePathResult.actual_dir)"
+        } elseif ($basePathResult.status -eq 'would-create-junction') {
+            Write-Log "[MuMu base] Would repair $($basePathResult.expected_dir) -> $($basePathResult.actual_dir)"
+        }
+    }
+
     $instanceResults = New-Object System.Collections.Generic.List[object]
     $instancesProcessed = 0
     $filesChanged = 0
@@ -1274,6 +1506,7 @@ function Invoke-SetupInstall {
         install_level_config_files = $installLevelConfigs
         user_configs               = $userConfigResults.files
         apk_associations           = $associationResults
+        engine_base_paths          = $basePathResults
         instances                  = $instanceResults
     }
 }
@@ -1577,12 +1810,13 @@ function Save-MuMuInstaller {
 function Show-Help {
     Write-Host @'
 Usage:
-  powershell -NoProfile -ExecutionPolicy Bypass -File scripts\MuMuConfig.ps1 -Action Setup [options]
-  powershell -NoProfile -ExecutionPolicy Bypass -File scripts\MuMuConfig.ps1 -Action Restore [options]
+  powershell -NoProfile -ExecutionPolicy RemoteSigned -File scripts\MuMuConfig.ps1 -Action Setup [options]
+  powershell -NoProfile -ExecutionPolicy RemoteSigned -File scripts\MuMuConfig.ps1 -Action Restore [options]
 
 Actions:
   Setup                  Patch non-base MuMu instances for root + writable system.
   Restore                Restore *.bak files created under instance configs.
+  RepairBasePaths         Repair verified MuMu V2 engine/base path relocations only.
   FindInstall            Print discovered installs.
   InspectInstallConfigs  List install-level JSON/INI files under configs, nx_device, nx_main.
   ResolveDownload        Resolve current Global Windows installer metadata and redirect URL.
@@ -1592,7 +1826,7 @@ Options:
   --edition auto|global|chinese|all   Default: auto. Auto prefers Global, then Chinese.
   --dry-run                           Report changes without writing files.
   --no-kill                           Do not stop MuMu processes/services.
-  --install-root PATH                 Use a specific install root, then derive PATH\vms.
+  --install-root PATH                 Use a specific install root and discover its configured VM path.
   --registry-root PATH                Test hook for an alternate uninstall registry root.
   --user-data-root PATH               Test hook for alternate %APPDATA%\Netease root.
   --classes-root PATH                 Test hook for alternate HKCU Software\Classes root.
@@ -1671,6 +1905,39 @@ function Invoke-Main {
                     Write-Host "$($install.edition): $($install.install_root)"
                     foreach ($file in $install.files) {
                         Write-Host "  $file"
+                    }
+                }
+            }
+            return 0
+        }
+        'Repairbasepaths' {
+            $installs = @(Find-MuMuInstall -Edition $script:Options.Edition)
+            if ($installs.Count -eq 0) {
+                throw "No MuMu install found for edition '$($script:Options.Edition)'."
+            }
+
+            if (-not $script:Options.NoKill -and -not $script:Options.DryRun) {
+                Write-Log 'Stopping MuMu processes and services before base-path repair...'
+                Stop-MuMuProcesses -Installs $installs
+            }
+
+            $results = @($installs | ForEach-Object {
+                [pscustomobject]@{
+                    edition           = $_.edition
+                    install_root      = $_.install_root
+                    vms_path          = $_.vms_path
+                    engine_base_paths = @(Repair-MuMuBaseImagePaths -Install $_)
+                    dry_run           = $script:Options.DryRun
+                }
+            })
+
+            if ($script:Options.Json) {
+                Write-JsonResult $results
+            } else {
+                foreach ($installResult in $results) {
+                    Write-Host "$($installResult.edition): $($installResult.install_root)"
+                    foreach ($basePath in $installResult.engine_base_paths) {
+                        Write-Host "  $($basePath.status): $($basePath.expected_dir)"
                     }
                 }
             }

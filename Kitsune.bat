@@ -2,7 +2,10 @@
 setlocal EnableExtensions DisableDelayedExpansion
 
 set "SCRIPT_DIR=%~dp0"
-set "HELPER=%SCRIPT_DIR%scripts\MuMuConfig.ps1"
+set "HELPER=%SCRIPT_DIR%scripts\Kitsune.ps1"
+set "CONFIG_HELPER=%SCRIPT_DIR%scripts\MuMuConfig.ps1"
+set "GUEST_SCRIPT=%SCRIPT_DIR%scripts\mumu-guest-sanitize.sh"
+set "KITSUNE_APK=%SCRIPT_DIR%Tools\app-release.apk"
 
 net session >nul 2>&1
 if %errorlevel% equ 0 goto GotAdmin
@@ -24,17 +27,20 @@ exit /b %errorlevel%
 
 :GotAdmin
 cd /d "%SCRIPT_DIR%"
-if not exist "%HELPER%" (
-    echo Required file is missing: scripts\MuMuConfig.ps1
-    echo Use the complete one-command download shown in README.md, or run from a cloned repo.
-    exit /b 1
-)
+if not exist "%HELPER%" goto MissingFiles
+if not exist "%CONFIG_HELPER%" goto MissingFiles
+if not exist "%GUEST_SCRIPT%" goto MissingFiles
+if not exist "%KITSUNE_APK%" goto MissingFiles
 
-echo Running MuMu restore from: %CD%
-powershell.exe -NoProfile -ExecutionPolicy RemoteSigned -File "%HELPER%" -Action Restore %*
+powershell.exe -NoProfile -ExecutionPolicy RemoteSigned -File "%HELPER%" %*
 set "EXIT_CODE=%errorlevel%"
 if defined MUMU_ELEVATED_CHILD (
     echo.
     pause
 )
 exit /b %EXIT_CODE%
+
+:MissingFiles
+echo One or more required repository files are missing.
+echo Run Kitsune.bat from a complete clone or release archive; it never downloads or executes replacement code at runtime.
+exit /b 1

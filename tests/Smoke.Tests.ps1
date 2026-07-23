@@ -6,6 +6,9 @@ $ErrorActionPreference = 'Stop'
 
 $repoRoot = Split-Path -Parent $PSScriptRoot
 $scriptPath = Join-Path $repoRoot 'scripts\MuMuConfig.ps1'
+$kitsuneScriptPath = Join-Path $repoRoot 'scripts\Kitsune.ps1'
+$guestSanitizerPath = Join-Path $repoRoot 'scripts\mumu-guest-sanitize.sh'
+$kitsuneApkPath = Join-Path $repoRoot 'Tools\app-release.apk'
 $testRoot = Join-Path ([System.IO.Path]::GetTempPath()) ("mumu-magisk-smoke-" + [Guid]::NewGuid().ToString('N'))
 $registryRootNative = 'HKEY_CURRENT_USER\Software\mumu-magisk-1click-tests\Uninstall'
 $registryRoot = "Registry::$registryRootNative"
@@ -34,7 +37,7 @@ function First-Value {
 function Invoke-MuMuTool {
     param([string[]]$Arguments)
 
-    $output = & powershell.exe -NoProfile -ExecutionPolicy Bypass -File $scriptPath @Arguments
+    $output = & powershell.exe -NoProfile -ExecutionPolicy RemoteSigned -File $scriptPath @Arguments
     $exitCode = $LASTEXITCODE
     return [pscustomobject]@{
         ExitCode = $exitCode
@@ -58,8 +61,19 @@ function New-MuMuFixture {
     }
     $userConfigRoot = Join-Path $userDataRoot "$userFolder\configs"
     $userTemplateRoot = Join-Path $userConfigRoot 'multi-advanced'
+    $engineBaseRoot = $null
+    $expectedBaseRoot = $null
 
     New-Item -ItemType Directory -Path $configRoot, $baseConfigRoot, $nxMainRoot, $userConfigRoot, $userTemplateRoot -Force | Out-Null
+
+    if ($Edition -eq 'Global') {
+        $baseName = "$FolderName-base"
+        $engineBaseRoot = Join-Path $installRoot "nx_device\12.0\vms\$baseName"
+        $expectedBaseRoot = Join-Path $installRoot "vms\$baseName"
+        New-Item -ItemType Directory -Path $engineBaseRoot -Force | Out-Null
+        $vdiHeader = [System.Text.Encoding]::ASCII.GetBytes("<<< Oracle VM VirtualBox Disk Image >>>`n".PadRight(64, [char]0))
+        [System.IO.File]::WriteAllBytes((Join-Path $engineBaseRoot 'system.vdi'), $vdiHeader)
+    }
 
     @'
 {
@@ -156,6 +170,8 @@ function New-MuMuFixture {
         InstallRoot = $installRoot
         ConfigRoot  = $configRoot
         BaseRoot    = $baseConfigRoot
+        EngineBaseRoot = $engineBaseRoot
+        ExpectedBaseRoot = $expectedBaseRoot
         UserConfigRoot = $userConfigRoot
     }
 }
@@ -225,14 +241,35 @@ try {
 
     $dryRun = Invoke-MuMuTool -Arguments (@('-Action', 'Setup', '--edition', 'global') + $commonArgs + @('--dry-run', '--no-kill', '--json'))
     Assert-True ($dryRun.ExitCode -eq 0) "Setup dry-run failed: $($dryRun.Output)"
+    $dryRunParsed = @($dryRun.Output | ConvertFrom-Json)[0]
     $customerBefore = Read-Json (Join-Path $global.ConfigRoot 'customer_config.json')
     $nxMainBefore = Read-Json (Join-Path $global.UserConfigRoot 'nx_main.json')
     Assert-True ($customerBefore.setting.other_setting.root_mode -eq '0') 'Dry-run modified customer_config.json.'
     Assert-True ($nxMainBefore.nxmain.setting.apk_association -eq '1') 'Dry-run modified user nx_main.json.'
     Assert-True ((Get-RegistryDefault (Join-Path $classesRootPs '.apk')) -eq 'MuMuPlayerGlobal.apk') 'Dry-run modified APK registry association.'
+    Assert-True (-not (Test-Path -LiteralPath $global.ExpectedBaseRoot)) 'Dry-run created a MuMu base junction.'
+    Assert-True (@($dryRunParsed.engine_base_paths)[0].status -eq 'would-create-junction') 'Dry-run did not report the missing MuMu base junction.'
+
+    $repair = Invoke-MuMuTool -Arguments (@('-Action', 'RepairBasePaths', '--edition', 'global') + $commonArgs + @('--no-kill', '--json'))
+    Assert-True ($repair.ExitCode -eq 0) "RepairBasePaths failed: $($repair.Output)"
+    $repairParsed = @($repair.Output | ConvertFrom-Json)[0]
+    Assert-True (@($repairParsed.engine_base_paths)[0].status -eq 'created-junction') 'RepairBasePaths did not report its verified junction.'
 
     $setup = Invoke-MuMuTool -Arguments (@('-Action', 'Setup', '--edition', 'global') + $commonArgs + @('--no-kill', '--json'))
     Assert-True ($setup.ExitCode -eq 0) "Setup failed: $($setup.Output)"
+    $setupParsed = @($setup.Output | ConvertFrom-Json)[0]
+
+    $baseJunction = Get-Item -LiteralPath $global.ExpectedBaseRoot -Force
+    Assert-True ($baseJunction.LinkType -eq 'Junction') 'Setup did not create a directory junction for the split MuMu base path.'
+    Assert-True (([System.IO.Path]::GetFullPath([string](@($baseJunction.Target)[0])).TrimEnd('\')) -eq
+        ([System.IO.Path]::GetFullPath($global.EngineBaseRoot).TrimEnd('\'))) 'MuMu base junction points to the wrong engine directory.'
+    Assert-True (Test-Path -LiteralPath (Join-Path $global.ExpectedBaseRoot 'system.vdi') -PathType Leaf) 'MuMu base junction does not expose system.vdi.'
+    Assert-True (@($setupParsed.engine_base_paths)[0].status -eq 'healthy') 'Setup did not preserve the repaired MuMu base junction as healthy.'
+
+    $repeatSetup = Invoke-MuMuTool -Arguments (@('-Action', 'Setup', '--edition', 'global') + $commonArgs + @('--no-kill', '--json'))
+    Assert-True ($repeatSetup.ExitCode -eq 0) "Repeated setup failed: $($repeatSetup.Output)"
+    $repeatParsed = @($repeatSetup.Output | ConvertFrom-Json)[0]
+    Assert-True (@($repeatParsed.engine_base_paths)[0].status -eq 'healthy') 'Repeated setup did not treat the verified base junction as healthy.'
 
     $customer = Read-Json (Join-Path $global.ConfigRoot 'customer_config.json')
     $vm = Read-Json (Join-Path $global.ConfigRoot 'vm_config.json')
@@ -301,6 +338,24 @@ try {
         Assert-True (@($downloadInfo.status_chain) -contains 302) 'Global download resolution did not include the API redirect.'
         Assert-True (@($downloadInfo.status_chain) -contains 200) 'Global download resolution did not include a final 200 response.'
     }
+
+    $kitsuneHelp = & powershell.exe -NoProfile -ExecutionPolicy RemoteSigned -File $kitsuneScriptPath --help
+    Assert-True ($LASTEXITCODE -eq 0) "Kitsune helper help failed: $($kitsuneHelp -join [Environment]::NewLine)"
+    Assert-True (($kitsuneHelp -join "`n") -match 'prepare\s+Repair verified MuMu base paths') 'Kitsune helper did not expose the guarded prepare workflow.'
+    $oldErrorActionPreference = $ErrorActionPreference
+    try {
+        $ErrorActionPreference = 'Continue'
+    $missingInstance = & powershell.exe -NoProfile -ExecutionPolicy RemoteSigned -File $kitsuneScriptPath prepare --instance nope 2>&1
+    } finally {
+        $ErrorActionPreference = $oldErrorActionPreference
+    }
+    Assert-True ($LASTEXITCODE -eq 1) 'Kitsune helper accepted a nonnumeric instance override.'
+    Assert-True (($missingInstance -join "`n") -match '--instance must be a numeric') 'Kitsune invalid-instance error was not actionable.'
+
+    $apkSha256 = (Get-FileHash -LiteralPath $kitsuneApkPath -Algorithm SHA256).Hash.ToLowerInvariant()
+    Assert-True ($apkSha256 -eq 'fac319d2de262fcfff1684e13e1a5c61c486d2a773a7a8ffcfdbfe6f763a7fd4') 'Bundled Kitsune APK is not the pinned v31.0-25fa2159 asset.'
+    $guestBytes = [System.IO.File]::ReadAllBytes($guestSanitizerPath)
+    Assert-True (-not ($guestBytes -contains 13)) 'Guest sanitizer contains CRLF; Android shell scripts must remain LF-only.'
 
     Write-Host 'Smoke tests passed.'
 } finally {
