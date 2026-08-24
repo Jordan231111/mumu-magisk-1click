@@ -1,6 +1,6 @@
 Global MuMu installer resolved via official API.
-MetadataVersion=6.3.1
-MetadataUpdateTimeUtc=2026-07-21 06:15:09Z
+MetadataVersion=6.5.2
+MetadataUpdateTimeUtc=2026-08-14 07:32:56Z
 CdnFile=MuMu_6.0.1_gw-win-download_all_1783407295.exe
 ContentLength=6100936
 MD5=63d7274e3a2b37c4d873eccb37fd9449
