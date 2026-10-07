@@ -33,17 +33,6 @@ $script:Editions = @{
     }
 }
 
-function Set-OptionValue {
-    param(
-        [string]$Name,
-        [int]$Index
-    )
-
-    if ($Index + 1 -ge $args.Count) {
-        throw "Missing value for $Name."
-    }
-}
-
 function Read-Arguments {
     for ($i = 0; $i -lt $args.Count; $i++) {
         $arg = [string]$args[$i]
@@ -121,7 +110,7 @@ function Read-Arguments {
         }
     }
 
-    $script:Options.Action = (Get-Culture).TextInfo.ToTitleCase(([string]$script:Options.Action).ToLowerInvariant())
+    $script:Options.Action = ([string]$script:Options.Action).ToLowerInvariant()
 
     switch ($script:Options.Edition) {
         'g' { $script:Options.Edition = 'global' }
@@ -143,7 +132,7 @@ function Write-Log {
 
 function Write-JsonResult {
     param($Value)
-    $json = $Value | ConvertTo-Json -Depth 20
+    $json = if ($Value -is [array] -and $Value.Count -eq 0) { '[]' } else { $Value | ConvertTo-Json -Depth 100 }
     [Console]::Out.WriteLine($json)
 }
 
@@ -305,7 +294,7 @@ function Resolve-MuMuVmsPath {
     $candidates = New-Object System.Collections.Generic.List[object]
     foreach ($configPath in (Get-InstallConfigCandidates -InstallRoot $InstallRoot)) {
         try {
-            $json = Get-Content -LiteralPath $configPath -Raw | ConvertFrom-Json
+            $json = [System.IO.File]::ReadAllText($configPath) | ConvertFrom-Json
             $enginesProperty = $json.PSObject.Properties['engines']
             if (-not $enginesProperty) { continue }
 
@@ -399,6 +388,10 @@ function Add-InstallCandidate {
 
     $editionInfo = $script:Editions[$Edition]
     $root = Resolve-InstallRootCandidate -Candidate $Candidate -EditionInfo $editionInfo
+    if (-not $root) { return }
+    foreach ($existing in $List) {
+        if ([string]::Equals($existing.install_root, $root, [StringComparison]::OrdinalIgnoreCase)) { return }
+    }
     $install = New-InstallObject -Edition $Edition -InstallRoot $root -DisplayVersion $DisplayVersion -Source $Source
     if ($install) {
         [void]$List.Add($install)
@@ -635,25 +628,22 @@ function Stop-MuMuProcesses {
     )
 
     $stoppedPids = @{}
-    foreach ($processName in $processNames) {
-        $processes = Get-Process -Name $processName -ErrorAction SilentlyContinue
-        foreach ($process in $processes) {
-            if ($stoppedPids.ContainsKey($process.Id)) { continue }
-            Write-Log "Stopping process: $($process.ProcessName) ($($process.Id))"
-            Stop-Process -Id $process.Id -Force -ErrorAction SilentlyContinue
-            $stoppedPids[$process.Id] = $true
-        }
+    foreach ($process in (Get-Process -Name $processNames -ErrorAction SilentlyContinue)) {
+        if ($stoppedPids.ContainsKey($process.Id)) { continue }
+        Write-Log "Stopping process: $($process.ProcessName) ($($process.Id))"
+        Stop-Process -Id $process.Id -Force -ErrorAction SilentlyContinue
+        $stoppedPids[$process.Id] = $true
     }
 
     if ($rootPrefixes.Count -gt 0) {
         Get-CimInstance Win32_Process -ErrorAction SilentlyContinue |
             Where-Object { Test-PathIsUnderRoot -Path $_.ExecutablePath -RootPrefixes $rootPrefixes } |
             ForEach-Object {
-                $pid = [int]$_.ProcessId
-                if ($stoppedPids.ContainsKey($pid)) { return }
-                Write-Log "Stopping MuMu install process: $($_.Name) ($pid)"
-                Stop-Process -Id $pid -Force -ErrorAction SilentlyContinue
-                $stoppedPids[$pid] = $true
+                $processId = [int]$_.ProcessId
+                if ($stoppedPids.ContainsKey($processId)) { return }
+                Write-Log "Stopping MuMu install process: $($_.Name) ($processId)"
+                Stop-Process -Id $processId -Force -ErrorAction SilentlyContinue
+                $stoppedPids[$processId] = $true
             }
     }
 }
@@ -715,7 +705,7 @@ function Set-JsonValueIfExists {
 
     $oldComparable = [string]$oldValue
     $newComparable = [string]$newValue
-    if ($oldComparable -ne $newComparable) {
+    if ($oldComparable -cne $newComparable) {
         Add-Member -InputObject $parent -NotePropertyName $leaf -NotePropertyValue $newValue -Force
         return [pscustomobject]@{ found = $true; changed = $true; old_value = $oldValue; new_value = $newValue }
     }
@@ -726,7 +716,8 @@ function Set-JsonValueIfExists {
 function Read-JsonFile {
     param([string]$Path)
 
-    $text = Get-Content -LiteralPath $Path -Raw
+    # MuMu writes UTF-8 without a BOM; Windows PowerShell otherwise assumes ANSI.
+    $text = [System.IO.File]::ReadAllText($Path)
     if ([string]::IsNullOrWhiteSpace($text)) {
         throw "JSON file is empty: $Path"
     }
@@ -742,7 +733,14 @@ function Write-JsonFile {
 
     $jsonText = $Json | ConvertTo-Json -Depth 100
     $utf8NoBom = New-Object System.Text.UTF8Encoding($false)
-    [System.IO.File]::WriteAllText($Path, $jsonText + [Environment]::NewLine, $utf8NoBom)
+    $temporaryPath = $Path + '.' + [Guid]::NewGuid().ToString('N') + '.tmp'
+    try {
+        [System.IO.File]::WriteAllText($temporaryPath, $jsonText + [Environment]::NewLine, $utf8NoBom)
+        # Replace only after serialization and the complete write succeed.
+        [System.IO.File]::Replace($temporaryPath, $Path, [System.Management.Automation.Language.NullString]::Value)
+    } finally {
+        if ([System.IO.File]::Exists($temporaryPath)) { [System.IO.File]::Delete($temporaryPath) }
+    }
 }
 
 function Backup-File {
@@ -1528,10 +1526,12 @@ function Invoke-RestoreInstall {
         }
 
         $restoredFiles = New-Object System.Collections.Generic.List[string]
-        foreach ($backup in (Get-ChildItem -LiteralPath $configsPath -File -Filter '*.bak' -ErrorAction SilentlyContinue)) {
-            $target = $backup.FullName.Substring(0, $backup.FullName.Length - 4)
+        foreach ($name in @('customer_config.json', 'vm_config.json', 'shell_config.json')) {
+            $target = Join-ChildPath -Path $configsPath -Child $name
+            $backupPath = "$target.bak"
+            if (-not (Test-Path -LiteralPath $backupPath -PathType Leaf)) { continue }
             if (-not $script:Options.DryRun) {
-                Copy-Item -LiteralPath $backup.FullName -Destination $target -Force
+                Copy-Item -LiteralPath $backupPath -Destination $target -Force
             }
             [void]$restoredFiles.Add((Split-Path -Leaf $target))
             $filesRestored++
@@ -1617,6 +1617,8 @@ function Invoke-HeadRequest {
 
     $request = [System.Net.HttpWebRequest]::Create($Url)
     $request.Method = 'HEAD'
+    $request.Timeout = 30000
+    $request.ReadWriteTimeout = 30000
     $request.AllowAutoRedirect = $false
     $request.UserAgent = 'mumu-magisk-1click-ci'
     $request.Referer = 'https://www.mumuplayer.com/download/'
@@ -1653,7 +1655,7 @@ function Resolve-MuMuDownload {
     $metadataUrl = 'https://api.mumuplayer.com/api/website/download_version_info?usage=1'
     $downloadUrl = 'https://api.mumuplayer.com/api/dl/win?channel=gw-win-download'
 
-    $metadata = Invoke-RestMethod -Uri $metadataUrl -Headers $headers -UseBasicParsing
+    $metadata = Invoke-RestMethod -Uri $metadataUrl -Headers $headers -UseBasicParsing -TimeoutSec 30
     $win = @($metadata.data | Where-Object { $_.platform -eq 'win' } | Select-Object -First 1)
     if ($win.Count -eq 0) {
         throw 'Global version metadata did not include a Windows entry.'
@@ -1699,10 +1701,10 @@ function Resolve-MuMuDownload {
     }
 
     $final = $chain[$chain.Count - 1]
-    $finalUrl = $final.url
-    if ($final.status -ge 300 -and $final.status -lt 400 -and $final.location) {
-        $finalUrl = Resolve-RedirectUrl -CurrentUrl $final.url -Location $final.location
+    if ($final.status -ne 200) {
+        throw 'Global download redirect chain did not reach a successful final response.'
     }
+    $finalUrl = $final.url
 
     $exeInChain = @($chain | Where-Object { $_.url -match '\.exe(\?|$)' -or $_.location -match '\.exe(\?|$)' })
     if ($exeInChain.Count -eq 0 -and $finalUrl -notmatch '\.exe(\?|$)') {
@@ -1758,49 +1760,69 @@ function Save-MuMuInstaller {
         Referer = 'https://www.mumuplayer.com/download/'
     }
 
-    Write-Log "Downloading Global MuMu installer:"
-    Write-Log $Info.final_url
-    Invoke-WebRequest -UseBasicParsing -Uri $Info.final_url -Headers $headers -OutFile $resolvedOutput
-
-    $file = Get-Item -LiteralPath $resolvedOutput
-    if ($Info.content_length -gt 0 -and $file.Length -ne [int64]$Info.content_length) {
-        throw "Downloaded installer size mismatch. Expected $($Info.content_length), got $($file.Length)."
-    }
-
-    $fileHash = (Get-FileHash -LiteralPath $resolvedOutput -Algorithm MD5).Hash.ToLowerInvariant()
-    if ($Info.final_md5_hex -and $fileHash -ne $Info.final_md5_hex.ToLowerInvariant()) {
-        throw "Downloaded installer MD5 mismatch. Expected $($Info.final_md5_hex), got $fileHash."
-    }
-
     if ([string]::IsNullOrWhiteSpace($MetadataPath)) {
         $MetadataPath = Join-ChildPath -Path (Get-Location).Path -Child 'installer-url.txt'
     }
 
     $resolvedMetadata = $ExecutionContext.SessionState.Path.GetUnresolvedProviderPathFromPSPath($MetadataPath)
+    if ([string]::Equals($resolvedOutput, $resolvedMetadata, [StringComparison]::OrdinalIgnoreCase)) {
+        throw 'Installer and metadata output paths must be different.'
+    }
     $metadataDirectory = [System.IO.Path]::GetDirectoryName($resolvedMetadata)
     if (-not [string]::IsNullOrWhiteSpace($metadataDirectory) -and -not (Test-Path -LiteralPath $metadataDirectory)) {
         New-Item -ItemType Directory -Path $metadataDirectory -Force | Out-Null
     }
 
-    $metadataLines = @(
-        'Global MuMu installer resolved via official API.',
-        "MetadataVersion=$($Info.metadata_version)",
-        "MetadataUpdateTimeUtc=$($Info.metadata_update_time_utc)",
-        "CdnFile=$([System.IO.Path]::GetFileName(([Uri]$Info.final_url).AbsolutePath))",
-        "ContentLength=$($Info.content_length)",
-        "MD5=$fileHash",
-        "ETag=$($Info.final_etag)",
-        "LastModified=$($Info.final_last_modified)",
-        "DownloadApi=$($Info.download_api)"
-    )
-    $utf8NoBom = New-Object System.Text.UTF8Encoding($false)
-    [System.IO.File]::WriteAllText($resolvedMetadata, (($metadataLines -join [Environment]::NewLine) + [Environment]::NewLine), $utf8NoBom)
+    $temporaryOutput = $resolvedOutput + '.' + [Guid]::NewGuid().ToString('N') + '.download'
+    $temporaryMetadata = $resolvedMetadata + '.' + [Guid]::NewGuid().ToString('N') + '.tmp'
+    try {
+        Write-Log 'Downloading Global MuMu installer:'
+        Write-Log $Info.final_url
+        Invoke-WebRequest -UseBasicParsing -Uri $Info.final_url -Headers $headers -OutFile $temporaryOutput -TimeoutSec 120
+
+        $file = Get-Item -LiteralPath $temporaryOutput
+        $downloadedLength = $file.Length
+        if ($Info.content_length -gt 0 -and $downloadedLength -ne [int64]$Info.content_length) {
+            throw "Downloaded installer size mismatch. Expected $($Info.content_length), got $downloadedLength."
+        }
+        $fileHash = (Get-FileHash -LiteralPath $temporaryOutput -Algorithm MD5).Hash.ToLowerInvariant()
+        if ($Info.final_md5_hex -and $fileHash -ne $Info.final_md5_hex.ToLowerInvariant()) {
+            throw "Downloaded installer MD5 mismatch. Expected $($Info.final_md5_hex), got $fileHash."
+        }
+
+        $metadataLines = @(
+            'Global MuMu installer resolved via official API.',
+            "MetadataVersion=$($Info.metadata_version)",
+            "MetadataUpdateTimeUtc=$($Info.metadata_update_time_utc)",
+            "CdnFile=$([System.IO.Path]::GetFileName(([Uri]$Info.final_url).AbsolutePath))",
+            "ContentLength=$($Info.content_length)",
+            "MD5=$fileHash",
+            "ETag=$($Info.final_etag)",
+            "LastModified=$($Info.final_last_modified)",
+            "DownloadApi=$($Info.download_api)"
+        )
+        $utf8NoBom = New-Object System.Text.UTF8Encoding($false)
+        [System.IO.File]::WriteAllText($temporaryMetadata, (($metadataLines -join [Environment]::NewLine) + [Environment]::NewLine), $utf8NoBom)
+
+        # A failed transfer or verification must leave the previous installer intact.
+        foreach ($pair in @(@($temporaryOutput, $resolvedOutput), @($temporaryMetadata, $resolvedMetadata))) {
+            if ([System.IO.File]::Exists($pair[1])) {
+                [System.IO.File]::Replace($pair[0], $pair[1], [System.Management.Automation.Language.NullString]::Value)
+            } else {
+                [System.IO.File]::Move($pair[0], $pair[1])
+            }
+        }
+    } finally {
+        foreach ($temporaryPath in @($temporaryOutput, $temporaryMetadata)) {
+            if ([System.IO.File]::Exists($temporaryPath)) { [System.IO.File]::Delete($temporaryPath) }
+        }
+    }
 
     return [pscustomobject]@{
         output_path       = $resolvedOutput
         metadata_path     = $resolvedMetadata
         filename          = $Info.filename
-        content_length    = $file.Length
+        content_length    = $downloadedLength
         md5               = $fileHash
         metadata_version  = $Info.metadata_version
         final_url         = $Info.final_url
@@ -1815,7 +1837,7 @@ Usage:
 
 Actions:
   Setup                  Patch non-base MuMu instances for root + writable system.
-  Restore                Restore *.bak files created under instance configs.
+  Restore                Restore backups of the config files managed by Setup.
   RepairBasePaths         Repair verified MuMu V2 engine/base path relocations only.
   FindInstall            Print discovered installs.
   InspectInstallConfigs  List install-level JSON/INI files under configs, nx_device, nx_main.
@@ -1949,7 +1971,7 @@ function Invoke-Main {
                 throw "No MuMu install found for edition '$($script:Options.Edition)'."
             }
 
-            if (-not $script:Options.NoKill) {
+            if (-not $script:Options.NoKill -and -not $script:Options.DryRun) {
                 Write-Log 'Stopping MuMu processes and services...'
                 Stop-MuMuProcesses -Installs $installs
             }
@@ -1957,7 +1979,6 @@ function Invoke-Main {
             $results = @($installs | ForEach-Object { Invoke-SetupInstall -Install $_ })
             $instances = @($results | Measure-Object -Property instances_processed -Sum).Sum
             if ($instances -lt 1) {
-                if ($script:Options.Json) { Write-JsonResult $results }
                 throw 'No non-base MuMu instances with target config files were found.'
             }
 
@@ -1982,7 +2003,7 @@ function Invoke-Main {
                 throw "No MuMu install found for edition '$($script:Options.Edition)'."
             }
 
-            if (-not $script:Options.NoKill) {
+            if (-not $script:Options.NoKill -and -not $script:Options.DryRun) {
                 Write-Log 'Stopping MuMu processes and services...'
                 Stop-MuMuProcesses -Installs $installs
             }
@@ -2017,7 +2038,7 @@ try {
             error = $message
         })
     } else {
-        Write-Error $message
+        [Console]::Error.WriteLine($message)
     }
     exit 1
 }

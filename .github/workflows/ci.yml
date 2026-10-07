@@ -96,6 +96,31 @@ jobs:
         run: |
           powershell.exe -NoProfile -ExecutionPolicy RemoteSigned -File .\tests\Smoke.Tests.ps1
 
+      - name: Run correctness regression tests
+        shell: powershell
+        run: |
+          powershell.exe -NoProfile -ExecutionPolicy RemoteSigned -File .\tests\Correctness.Tests.ps1
+
+      - name: Verify launchers from PowerShell 7
+        shell: pwsh
+        run: |
+          pwsh.exe -NoProfile -File .\tests\Correctness.Tests.ps1
+
+      - name: Run guest recovery regression tests
+        shell: powershell
+        run: |
+          powershell.exe -NoProfile -ExecutionPolicy RemoteSigned -File .\tests\GuestRecovery.Tests.ps1
+
+      - name: Run README one-command regression tests
+        shell: powershell
+        run: |
+          powershell.exe -NoProfile -ExecutionPolicy RemoteSigned -File .\tests\OneCommand.Tests.ps1
+
+      - name: Verify README commands from PowerShell 7
+        shell: pwsh
+        run: |
+          pwsh.exe -NoProfile -File .\tests\OneCommand.Tests.ps1
+
   update-installer-pr:
     name: Update installer branch
     runs-on: windows-latest

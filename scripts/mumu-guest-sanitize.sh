@@ -164,7 +164,7 @@ run_namespace_probe() {
     echo "NAMESPACE_PROBE_OK parent=$PARENT_NS"
 }
 
-disable_vendor_daemon() {
+select_vendor_daemon() {
     MATCHES="$(grep -R -l -E '^service su_daemon /system/xbin/(mu_bak|su) --daemon$' \
         /system/etc/init /vendor/etc/init 2>/dev/null || true)"
     set -- $MATCHES
@@ -186,16 +186,61 @@ disable_vendor_daemon() {
 
     test "$(grep -c "$SERVICE_PATTERN" "$RC" || true)" -eq 1 ||
         fail "expected exactly one known su_daemon declaration"
+}
 
-    ensure_recovery_dir
-    trap 'rm -f "$TMP"' EXIT
-
+ensure_init_writable() {
     if ! grep -qE '^[^ ]+ /system [^ ]+ rw,' /proc/mounts; then
         mount -o rw,remount /system 2>/dev/null ||
             mount -o remount,rw /system 2>/dev/null ||
             fail "/system did not remount read-write"
     fi
     test -w "$RC" || fail "$RC is not writable"
+}
+
+enable_vendor_daemon_for_prepare() {
+    # Older versions disabled the daemon during prepare. Undo only that exact
+    # recorded edit so an interrupted installation can regain its bootstrap root.
+    select_vendor_daemon
+    if sed -n "/$SED_SERVICE_PATTERN/,/^service /p" "$RC" |
+        grep -qE '^[[:space:]]+disabled([[:space:]]|$)'; then
+        test -f "$RECOVERY/init.rc.before" ||
+            fail "vendor daemon is disabled without a matching preparation backup"
+        if sed -n "/$SED_SERVICE_PATTERN/,/^service /p" "$RECOVERY/init.rc.before" |
+            grep -qE '^[[:space:]]+disabled([[:space:]]|$)'; then
+            fail "vendor daemon was already disabled in the original backup"
+        fi
+        ensure_recovery_dir
+        trap 'rm -f "$TMP"' EXIT
+        sed "/$SED_SERVICE_PATTERN/a\\
+    disabled
+" "$RECOVERY/init.rc.before" > "$TMP"
+        cmp -s "$TMP" "$RC" ||
+            fail "vendor init RC differs from the recorded preparation edit"
+        ensure_init_writable
+        cat "$RECOVERY/init.rc.before" > "$RC"
+        cmp -s "$RECOVERY/init.rc.before" "$RC" || fail "vendor init RC recovery verification failed"
+        sync
+        echo "RESTORED_VENDOR_INIT rc=$RC"
+    fi
+
+    if test "$(getprop init.svc.su_daemon)" != running; then
+        start su_daemon || fail "could not start the MuMu vendor root daemon"
+    fi
+    for WAIT in 1 2 3 4 5 6 7 8 9 10; do
+        if test "$(getprop init.svc.su_daemon)" = running; then
+            echo "VENDOR_DAEMON_READY"
+            return 0
+        fi
+        sleep 1
+    done
+    fail "MuMu vendor root daemon did not start"
+}
+
+disable_vendor_daemon() {
+    select_vendor_daemon
+    ensure_recovery_dir
+    trap 'rm -f "$TMP"' EXIT
+    ensure_init_writable
 
     test -f "$RECOVERY/init.rc.before" || cp -p "$RC" "$RECOVERY/init.rc.before"
     if sed -n "/$SED_SERVICE_PATTERN/,/^service /p" "$RC" |
@@ -263,11 +308,15 @@ case "$MODE" in
     prepare)
         test -n "$EXPECTED_VENDOR_SHA256" ||
             fail "prepare mode requires the currently visible vendor su SHA-256"
+        if test -e /system/etc/init/magisk/config || test -e /system/etc/init/magisk.rc; then
+            fail "System Mode files already exist; use finalize instead of preparing again"
+        fi
         capture_vendor_clients
-        disable_vendor_daemon
+        enable_vendor_daemon_for_prepare
         echo "SANITIZE_OK mode=prepare recovery=$RECOVERY"
         ;;
     init-only)
+        assert_system_install
         disable_vendor_daemon
         echo "SANITIZE_OK mode=init-only recovery=$RECOVERY"
         ;;

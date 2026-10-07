@@ -78,7 +78,7 @@ function Read-Arguments {
         }
     }
 
-    $script:Options.Action = (Get-Culture).TextInfo.ToTitleCase(([string]$script:Options.Action).ToLowerInvariant())
+    $script:Options.Action = ([string]$script:Options.Action).ToLowerInvariant()
     switch ($script:Options.Edition) {
         'g' { $script:Options.Edition = 'global' }
         'cn' { $script:Options.Edition = 'chinese' }
@@ -313,18 +313,18 @@ function Convert-ManagerJson {
 }
 
 function Get-MuMuProcessSnapshot {
-    $devices = @(Get-CimInstance -ClassName Win32_Process -Filter "Name = 'MuMuNxDevice.exe'" -ErrorAction SilentlyContinue)
-    $headless = @(Get-CimInstance -ClassName Win32_Process -Filter "Name = 'MuMuVMMHeadless.exe'" -ErrorAction SilentlyContinue)
+    $processes = @(Get-CimInstance -ClassName Win32_Process -Filter "Name = 'MuMuNxDevice.exe' OR Name = 'MuMuVMMHeadless.exe'" -ErrorAction SilentlyContinue)
     return [pscustomobject]@{
-        Devices  = $devices
-        Headless = $headless
+        Devices  = @($processes | Where-Object { $_.Name -eq 'MuMuNxDevice.exe' })
+        Headless = @($processes | Where-Object { $_.Name -eq 'MuMuVMMHeadless.exe' })
     }
 }
 
 function Get-InstanceInventoryFromDisk {
     param(
         [Parameter(Mandatory = $true)]$Context,
-        $ProcessSnapshot
+        $ProcessSnapshot,
+        [string]$Instance
     )
 
     $vmsPath = [System.IO.Path]::GetFullPath([string]$Context.Install.vms_path)
@@ -332,6 +332,10 @@ function Get-InstanceInventoryFromDisk {
         throw "MuMu VMS path is missing: $vmsPath"
     }
     if (-not $ProcessSnapshot) { $ProcessSnapshot = Get-MuMuProcessSnapshot }
+    $installPrefix = [System.IO.Path]::GetFullPath([string]$Context.Install.install_root).TrimEnd('\') + '\'
+    $devices = @($ProcessSnapshot.Devices | Where-Object {
+        ([string]$_.ExecutablePath).StartsWith($installPrefix, [StringComparison]::OrdinalIgnoreCase)
+    })
 
     $prefix = if ([string]$Context.Install.edition -eq 'chinese') { 'MuMuPlayer' } else { 'MuMuPlayerGlobal' }
     $namePattern = '^{0}-(?<android>\d+(?:\.\d+)?)-(?<index>\d+)$' -f [regex]::Escape($prefix)
@@ -342,6 +346,7 @@ function Get-InstanceInventoryFromDisk {
         if (-not $match.Success) { continue }
 
         $index = $match.Groups['index'].Value
+        if ($Instance -and $index -ne $Instance) { continue }
         $androidVersion = $match.Groups['android'].Value
         if ($androidVersion -notmatch '\.') { $androidVersion += '.0' }
         $displayName = $directory.Name
@@ -351,7 +356,7 @@ function Get-InstanceInventoryFromDisk {
         $extraPath = Join-Path $directory.FullName 'configs\extra_config.json'
         if (Test-Path -LiteralPath $extraPath -PathType Leaf) {
             try {
-                $extra = Get-Content -LiteralPath $extraPath -Raw | ConvertFrom-Json
+                $extra = [System.IO.File]::ReadAllText($extraPath) | ConvertFrom-Json
                 if (-not [string]::IsNullOrWhiteSpace([string]$extra.playerName)) { $displayName = [string]$extra.playerName }
                 if ([string]$extra.series -match '^\d+(?:\.\d+)?$') {
                     $androidVersion = [string]$extra.series
@@ -366,7 +371,7 @@ function Get-InstanceInventoryFromDisk {
         $customerPath = Join-Path $directory.FullName 'configs\customer_config.json'
         if (Test-Path -LiteralPath $customerPath -PathType Leaf) {
             try {
-                $customer = Get-Content -LiteralPath $customerPath -Raw | ConvertFrom-Json
+                $customer = [System.IO.File]::ReadAllText($customerPath) | ConvertFrom-Json
                 $reportedLaunch = [string]$customer.nxdevice.report.launch.last_timestamp
                 if ($reportedLaunch -match '^\d+$') { $lastLaunchTimestamp = [int64]$reportedLaunch }
             } catch {
@@ -374,11 +379,13 @@ function Get-InstanceInventoryFromDisk {
             }
         }
 
-        $indexPattern = '(?:^|\s)-v\s+' + [regex]::Escape($index) + '(?:\s|$)'
-        $device = @($ProcessSnapshot.Devices | Where-Object {
+        $indexPattern = '(?:^|\s)-v\s+"?' + [regex]::Escape($index) + '"?(?:\s|$)'
+        $device = @($devices | Where-Object {
             [string]$_.CommandLine -match $indexPattern
         } | Sort-Object CreationDate -Descending | Select-Object -First 1)
-        $vmPattern = '-' + [regex]::Escape($androidVersion) + '-' + [regex]::Escape($index) + '(?:\s|"|$)'
+        $vmPattern = '(?:^|[\s"\\])' + [regex]::Escape($directory.Name) + '(?:\s|"|$)'
+        # The hypervisor can live outside this install. Match the complete VM name,
+        # including its edition, rather than just the Android version and index.
         $headless = @($ProcessSnapshot.Headless | Where-Object {
             [string]$_.CommandLine -match $vmPattern
         } | Sort-Object CreationDate -Descending | Select-Object -First 1)
@@ -416,9 +423,7 @@ function Get-InstanceInventoryFromDisk {
 function Get-InstanceInfo {
     param([Parameter(Mandatory = $true)]$Context)
 
-    $matches = @(Get-InstanceInventoryFromDisk -Context $Context | Where-Object {
-        [string]$_.index -eq [string]$Context.Instance
-    })
+    $matches = @(Get-InstanceInventoryFromDisk -Context $Context -Instance ([string]$Context.Instance))
     if ($matches.Count -ne 1) {
         throw "Expected one MuMu instance with index $($Context.Instance), found $($matches.Count) in $($Context.Install.vms_path)."
     }
@@ -606,7 +611,7 @@ function Invoke-VendorRootShell {
         Start-Sleep -Seconds 2
     } while ([DateTime]::UtcNow -lt $deadline)
 
-    $details = $result.Text
+    $details = $probe.Text
     if ([string]::IsNullOrWhiteSpace($details)) { $details = 'root ADB did not become ready within 45 seconds' }
     throw "MuMu's temporary root ADB bootstrap is unavailable. Confirm Root permission is on and cold-start the instance. Details: $details"
 }
@@ -736,6 +741,55 @@ function Launch-Kitsune {
     ) -Description 'Kitsune app launch' -ShowOutput)
 }
 
+function Test-KitsuneAppRoot {
+    param([Parameter(Mandatory = $true)]$Context)
+
+    # The pinned manager starts this libsu service only after obtaining real root.
+    # MuMu's root setting and root ADB do not prove that the app was authorized.
+    $result = Invoke-ManagerShell -Context $Context -Command 'ps -A -o UID,NAME' -TimeoutSeconds 5 -AllowFailure
+    $pattern = '^\s*0\s+' + [regex]::Escape($script:PackageName + ':root:0') + '\s*$'
+    return ($result.ExitCode -eq 0 -and @($result.Output | Where-Object { $_ -match $pattern }).Count -gt 0)
+}
+
+function Restart-Kitsune {
+    param([Parameter(Mandatory = $true)]$Context)
+
+    $command = "am force-stop $script:PackageName; if pidof $script:PackageName >/dev/null; then echo MUMU_KITSUNE_STILL_RUNNING; else echo MUMU_KITSUNE_STOPPED; fi"
+    for ($attempt = 1; $attempt -le 3; $attempt++) {
+        $result = Invoke-ManagerShell -Context $Context -Command $command -TimeoutSeconds 10 -AllowFailure
+        if ($result.ExitCode -eq 0 -and $result.Output -contains 'MUMU_KITSUNE_STOPPED') {
+            Launch-Kitsune -Context $Context
+            return
+        }
+        Start-Sleep -Seconds 1
+    }
+    throw 'Kitsune could not be fully closed to refresh its root state. Close its MuMu app tab and rerun prepare.'
+}
+
+function Ensure-KitsuneAppRoot {
+    param(
+        [Parameter(Mandatory = $true)]$Context,
+        [ValidateRange(1, 60)][int]$RootTimeoutSeconds = 30
+    )
+
+    Write-Host ''
+    Write-Host 'In MuMu''s root dialog, select Remember choice forever, then Allow.' -ForegroundColor Yellow
+    Write-Host 'Keep this console open. Kitsune will reopen if its first root request times out.'
+    for ($attempt = 1; $attempt -le 3; $attempt++) {
+        Write-Step "Opening Kitsune and verifying its root access (attempt $attempt of 3)"
+        Restart-Kitsune -Context $Context
+        $deadline = [DateTime]::UtcNow.AddSeconds($RootTimeoutSeconds)
+        do {
+            if (Test-KitsuneAppRoot -Context $Context) {
+                Write-Step 'Verified Kitsune app root access'
+                return
+            }
+            Start-Sleep -Seconds 1
+        } while ([DateTime]::UtcNow -lt $deadline)
+    }
+    throw 'MuMu did not grant Kitsune app root access. Choose Remember choice forever and Allow in its root dialog, then rerun prepare. MuMu vendor root remains enabled; Direct Install cannot be offered until the app itself has root.'
+}
+
 function Assert-SystemInstallComplete {
     param([Parameter(Mandatory = $true)]$Context)
 
@@ -754,27 +808,27 @@ function Assert-SystemInstallComplete {
 function Test-SystemModeRunning {
     param([Parameter(Mandatory = $true)]$Context)
 
-    $result = Invoke-ManagerShell -Context $Context -Command 'test "$(/sbin/magisk -V 2>/dev/null)" = 31000; test "$(pidof magiskd | wc -w)" = 1' -TimeoutSeconds 15 -AllowFailure
-    return ($result.ExitCode -eq 0)
+    $marker = '__MUMU_MAGISK_SYSTEM_MODE_OK__'
+    $command = 'test "$(/sbin/magisk -V 2>/dev/null)" = 31000 && test "$(pidof magiskd | wc -w)" = 1 && echo ' + $marker
+    $result = Invoke-ManagerShell -Context $Context -Command $command -TimeoutSeconds 15 -AllowFailure
+    # MuMuManager can return exit code 0 even when the guest command failed.
+    return ($result.ExitCode -eq 0 -and $result.Output -contains $marker)
 }
 
 function Test-KitsuneShellAuthorization {
     param([Parameter(Mandatory = $true)]$Context)
 
-    $settings = Get-InstanceSettings -Context $Context
-    if ([string]$settings.root_permission -eq 'true') {
-        # During the one transition boot MuMu's ADB shell is already root, so
-        # read (but never edit) Kitsune's policy for Android's fixed Shell UID.
-        $query = '/sbin/magisk --sqlite ''SELECT policy FROM policies WHERE uid=2000;'''
-        $result = Invoke-ManagerShell -Context $Context -Command $query -TimeoutSeconds 15 -AllowFailure
-        return ($result.ExitCode -eq 0 -and $result.Text -match '(?m)^policy=2$')
-    }
-
-    $marker = '__MUMU_MAGISK_SHELL_AUTHORIZED__'
-    $payload = 'test "$(id -u)" = 0; echo ' + $marker
-    $guestCommand = '/system/bin/su -c ' + (ConvertTo-ShellSingleQuoted -Value $payload)
-    $result = Invoke-ManagerShell -Context $Context -Command $guestCommand -TimeoutSeconds 15 -AllowFailure
-    return ($result.ExitCode -eq 0 -and $result.Text -match ('(?m)^' + [regex]::Escape($marker) + '$'))
+    $identity = Invoke-Manager -Context $Context -Arguments @(
+        'adb', '-v', $Context.Instance, '-c', 'shell id -u'
+    ) -Description 'Android Shell identity check' -TimeoutSeconds 5 -AllowFailure
+    if ($identity.ExitCode -ne 0 -or $identity.Text -ne '2000') { return $false }
+    # A cold boot returns ADB to UID 2000, even with MuMu root enabled. Request
+    # that UID's actual Magisk grant. MuMuManager sh is a privileged vendor channel
+    # and cannot establish that ordinary Android Shell is authorized.
+    $result = Invoke-Manager -Context $Context -Arguments @(
+        'adb', '-v', $Context.Instance, '-c', 'shell /sbin/magisk su -c id'
+    ) -Description 'Kitsune Android Shell authorization' -TimeoutSeconds 15 -AllowFailure
+    return ($result.ExitCode -eq 0 -and $result.Text -match '(?m)^uid=0\(root\)\s+.*\bcontext=u:r:magisk:s0\s*$')
 }
 
 function Ensure-KitsuneShellAuthorization {
@@ -787,9 +841,18 @@ function Ensure-KitsuneShellAuthorization {
         Write-Step 'Kitsune System Mode is already running on this boot'
     }
     [void](Push-Sanitizer -Context $Context)
+    # A resumed finalize can still have root ADB from its system-file gate.
+    # Verify the real shell user's grant, never root's unconditional access.
+    [void](Invoke-Manager -Context $Context -Arguments @(
+        'adb', '-v', $Context.Instance, '-c', 'unroot'
+    ) -Description 'Restore Android Shell identity for Magisk authorization')
+    Wait-ForManagerAdb -Context $Context
     Launch-Kitsune -Context $Context
 
+    Write-Host 'If Kitsune asks for Shell superuser access, choose Grant.'
+
     if (-not (Test-KitsuneShellAuthorization -Context $Context)) {
+        Launch-Kitsune -Context $Context
         Write-Host ''
         Write-Host 'Kitsune is now running in System Mode.' -ForegroundColor Green
         Write-Host 'Open its Superuser tab and enable [SharedUID] Shell.'
@@ -811,6 +874,7 @@ function Wait-ForStableMagiskDaemon {
         $daemonCountCommand = 'pidof magiskd | wc -w'
         $output = @(Invoke-RootShell -Context $Context -Command $daemonCountCommand -Phase 'Kitsune qualification')
         $line = @($output | Where-Object { [string]$_ -match '^\d+$' } | Select-Object -Last 1)
+        $lastCount = $null
         if ($line.Count -eq 1) { $lastCount = [int]$line[0] }
         if ($lastCount -eq 1) {
             $consecutive++
@@ -835,6 +899,9 @@ function Assert-QualifiedBoot {
         throw "Qualification requires MuMu vendor root off and system writable. Settings: $($settings | ConvertTo-Json -Compress)"
     }
     Assert-ExactKitsunePackage -Context $Context
+    if (-not (Test-KitsuneShellAuthorization -Context $Context)) {
+        throw "Android Shell could not obtain Magisk root on qualification boot $BootNumber."
+    }
 
     $sanitizeOutput = @(Invoke-RootShell -Context $Context -Command "$script:RemoteSanitizer all" -Phase 'Kitsune qualification')
     if ($sanitizeOutput -notcontains 'SANITIZE_OK mode=all recovery=/data/local/tmp/mumu-magisk-vendor-backup') {
@@ -980,10 +1047,32 @@ function Invoke-BasePathRepair {
     }
 }
 
+function Assert-NoExistingSystemInstall {
+    param([Parameter(Mandatory = $true)]$Context)
+
+    $command = 'if test -e /system/etc/init/magisk || test -e /system/etc/init/magisk.rc; then echo MUMU_SYSTEM_INSTALL_PRESENT; else echo MUMU_SYSTEM_INSTALL_ABSENT; fi'
+    $result = Invoke-ManagerShell -Context $Context -Command $command -TimeoutSeconds 10 -AllowFailure
+    if ($result.Output -contains 'MUMU_SYSTEM_INSTALL_PRESENT') {
+        throw 'System Mode files already exist. Use Kitsune.bat finalize to finish installation, or qualify to verify an existing installation. Preparation has not changed MuMu root settings.'
+    }
+    if ($result.ExitCode -ne 0 -or $result.Output -notcontains 'MUMU_SYSTEM_INSTALL_ABSENT') {
+        throw 'Could not check for an existing System Mode installation. Preparation has not changed MuMu root settings.'
+    }
+}
+
 function Invoke-Prepare {
     Assert-Administrator
     [void](Assert-ExactKitsuneApk)
     $context = New-Context
+
+    # Inspect with the existing settings before enabling vendor root. A stopped,
+    # already-rooted instance must not regain the competing MuMu root provider.
+    $info = Get-InstanceInfo -Context $context
+    if (-not [bool]$info.is_android_started) {
+        Invoke-BasePathRepair
+        [void](Start-Instance -Context $context)
+    }
+    Assert-NoExistingSystemInstall -Context $context
 
     Stop-Instance -Context $context
     Invoke-BasePathRepair
@@ -999,21 +1088,16 @@ function Invoke-Prepare {
     }
 
     Install-KitsuneApk -Context $context
-    Write-Host ''
-    Write-Host 'MuMu may show its Kitsune root dialog for only about 20 seconds.' -ForegroundColor Yellow
-    Write-Host 'When it appears, choose Remember and Allow.'
-    Launch-Kitsune -Context $context
+    Ensure-KitsuneAppRoot -Context $context
     Write-Host ''
     Write-Host 'Preparation is complete and MuMu root is intentionally still ON.' -ForegroundColor Green
     Write-Host 'In the Kitsune window:'
-    Write-Host '  1. Accept and remember MuMu''s root prompt for Kitsune.'
-    Write-Host '  2. If Direct Install is missing, fully close and reopen Kitsune after granting root.'
-    Write-Host '  3. Choose Install -> Direct Install (modify /system directly), then wait for Done.'
-    Write-Host '  4. Do not use Kitsune''s Reboot button; return to this console.'
+    Write-Host '  1. Choose Install -> Direct Install (modify /system directly), then wait for Done.'
+    Write-Host '  2. Do not use Kitsune''s Reboot button; return to this console.'
     if ($script:Options.Action -eq 'Install') {
-        Write-Host '  5. Press Enter here. The helper will perform the first System Mode boot.'
+        Write-Host '  3. Press Enter here. The helper will perform the first System Mode boot.'
     } else {
-        Write-Host '  5. Run: Kitsune.bat finalize'
+        Write-Host '  3. Run: Kitsune.bat finalize'
     }
     Write-Host ''
     Write-Host "Verified APK SHA-256: $script:ExpectedApkSha256"
@@ -1043,6 +1127,18 @@ function Invoke-Finalize {
     } catch {
         Launch-Kitsune -Context $context
         throw
+    }
+
+    # Keep the vendor daemon available throughout preparation and UI installation.
+    # Disabling it earlier strands users who reboot before Direct Install completes.
+    $command = "$script:RemoteSanitizer init-only"
+    try {
+        $disableOutput = @(Invoke-VendorRootShell -Context $context -Command $command)
+    } catch {
+        $disableOutput = @(Invoke-RootShell -Context $context -Command $command -Phase 'Kitsune finalize')
+    }
+    if ($disableOutput -notcontains 'SANITIZE_OK mode=init-only recovery=/data/local/tmp/mumu-magisk-vendor-backup') {
+        throw 'Vendor daemon preparation did not pass verification. MuMu root has not been disabled.'
     }
 
     Ensure-KitsuneShellAuthorization -Context $context
@@ -1082,7 +1178,7 @@ Usage:
 Actions:
   install   Run prepare and finalize from one .bat command, pausing for the in-app step.
   prepare   Repair verified MuMu base paths, enable MuMu root + writable system,
-            capture/disable the vendor su daemon safely, and install the exact v31 APK.
+            capture vendor su, install the exact v31 APK, and verify the app has root.
   finalize  Verify Direct Install, authorize Shell on the first System Mode boot,
             then turn MuMu root off and qualify a clean cold boot.
   qualify   Repeat root-off cold-boot collision checks without changing root settings.

@@ -34,14 +34,14 @@ Best for first-timers. The download includes the setup tool **and** every APK yo
 For anyone comfortable with a terminal. Press <kbd>Win</kbd>, type `cmd`, hit Enter, then paste this into **Command Prompt** (or **PowerShell**):
 
 ```cmd
-cmd.exe /d /c "if not exist scripts mkdir scripts && curl.exe -fL https://raw.githubusercontent.com/Jordan231111/mumu-magisk-1click/main/Setup.bat -o Setup.bat && curl.exe -fL https://raw.githubusercontent.com/Jordan231111/mumu-magisk-1click/main/scripts/MuMuConfig.ps1 -o scripts\MuMuConfig.ps1 && Setup.bat"
+cmd.exe /d /c "(if not exist scripts mkdir scripts) && curl.exe -fL https://raw.githubusercontent.com/Jordan231111/mumu-magisk-1click/main/Setup.bat -o Setup.bat && curl.exe -fL https://raw.githubusercontent.com/Jordan231111/mumu-magisk-1click/main/scripts/MuMuConfig.ps1 -o scripts\MuMuConfig.ps1 && Setup.bat"
 ```
 
 Accept the admin prompt when it appears. This grabs **only** the setup script, so you'll still want the [bundled tools ↓](#-whats-bundled) for the in-Android steps.
 
 That's it for the Windows side. Next: [install Magisk inside Android ↓](#-after-setup-install-magisk-inside-android).
 
-Both source files are downloaded before elevation. The checked-in batch launchers use process-scoped `RemoteSigned`; they do not download replacement code after UAC or permanently change Windows policy.
+Both source files are downloaded before elevation. The checked-in batch launchers unblock only their bundled PowerShell helpers and use process-scoped `RemoteSigned`; they do not download replacement code after UAC or permanently change Windows policy.
 
 ---
 
@@ -64,7 +64,11 @@ Run one command from the extracted folder:
 Kitsune.bat install
 ```
 
-The console pauses for Kitsune's Direct Install confirmation, then verifies the system-mode files before disabling MuMu vendor root. Cleanup removes a vendor `su` only when it matches the hash captured from that instance, runs in a private mount namespace, and cold-boots to verify exactly one stable Magisk daemon. `--instance N` remains an optional troubleshooting override; normal users do not need an index.
+When MuMu asks for Kitsune root access, dismiss any MuMu ad covering the dialog, then select **Remember choice forever** and **Allow**. The helper verifies that Kitsune itself has root and reopens it if an earlier root request timed out. Choose **Install → Direct Install (modify /system directly)** and return to the console when it says Done.
+
+MuMu's vendor daemon stays available until the direct-system files pass verification. On the first System Mode boot, grant **[SharedUID] Shell** in Kitsune when requested. The helper verifies real Android Shell access before switching off MuMu root. Cleanup removes a vendor `su` only when it matches the hash captured from that instance, runs in a private mount namespace, and cold-boots to verify exactly one stable Magisk daemon. `--instance N` remains an optional troubleshooting override; normal users do not need an index.
+
+The complete install and three subsequent cold boots were verified on **MuMu Global 6.8.0 / Android 12** with the bundled APK. An interrupted preparation from the older helper was also recovered and its Direct Install option restored.
 
 ---
 
@@ -132,14 +136,14 @@ Setup prepped the **Windows** side. The rest happens **inside MuMu**, and the tw
 
 ## ↩️ Undo / Restore
 
-Changed your mind? This puts everything back exactly as it was — it restores every backup setup made.
+Changed your mind? This restores the Windows-side configuration backups and APK associations changed by Setup. It does not uninstall Kitsune or reverse its Android system changes.
 
 **Easiest:** download the ZIP (if you haven't), then double-click **`RestoreMuMuConfig.bat`**.
 
 **One command:**
 
 ```cmd
-cmd.exe /d /c "if not exist scripts mkdir scripts && curl.exe -fL https://raw.githubusercontent.com/Jordan231111/mumu-magisk-1click/main/RestoreMuMuConfig.bat -o RestoreMuMuConfig.bat && curl.exe -fL https://raw.githubusercontent.com/Jordan231111/mumu-magisk-1click/main/scripts/MuMuConfig.ps1 -o scripts\MuMuConfig.ps1 && RestoreMuMuConfig.bat"
+cmd.exe /d /c "(if not exist scripts mkdir scripts) && curl.exe -fL https://raw.githubusercontent.com/Jordan231111/mumu-magisk-1click/main/RestoreMuMuConfig.bat -o RestoreMuMuConfig.bat && curl.exe -fL https://raw.githubusercontent.com/Jordan231111/mumu-magisk-1click/main/scripts/MuMuConfig.ps1 -o scripts\MuMuConfig.ps1 && RestoreMuMuConfig.bat"
 ```
 
 ---
@@ -155,8 +159,18 @@ Common for any admin script that stops emulator processes and edits config files
 #### It says "No MuMu install found"
 MuMu 12 isn't installed where the tool can see it. Install it first ([Global download](https://www.mumuplayer.com/download/)), open it once, then re-run.
 
+#### Setup opens and immediately closes
+Use the current files and extract the complete ZIP before running `Setup.bat`. Launching without arguments now keeps the result visible, including missing-file and startup errors. The launchers handle the downloaded-file marker on their bundled helpers; Windows otherwise blocks unsigned downloaded scripts under [RemoteSigned](https://learn.microsoft.com/en-us/powershell/module/microsoft.powershell.core/about/about_execution_policies?view=powershell-5.1). Administrator detection also works when the Windows Server service is stopped. Launching from PowerShell 7 is supported: each launcher uses Windows PowerShell's own modules without changing your permanent environment.
+
+If it still fails, open Command Prompt in the extracted folder, run `Setup.bat`, and share the error shown above the pause. Automation can set `MUMU_NO_PAUSE=1` to skip the final pause while preserving the exit code.
+
 #### It says "No instances were found"
 You need to **create an Android 12 instance** in MuMu's Multi-Instance Manager and **start it once** so its config files exist. Then close MuMu and re-run.
+
+#### Kitsune only shows "Select and Patch a File"
+MuMu's root toggle enables its root provider; Kitsune still needs its own permission grant. The bundled app hides Direct Install when its root request fails, and it can retain that failed state after a missed or late permission dialog. Run `Kitsune.bat prepare`, select **Remember choice forever → Allow**, and let the helper verify root and reopen the app before continuing.
+
+Older versions of this helper also disabled MuMu's root daemon too early. Rebooting before Direct Install could then leave Kitsune without bootstrap root. The current helper keeps that daemon enabled through preparation and recovers the older change only when the init file exactly matches its recorded backup plus the known edit. If System Mode files already exist, use `Kitsune.bat finalize` instead; preparation refuses to re-enable the competing root provider.
 
 #### Do I have to restart Windows?
 No. The launchers use process-scoped `RemoteSigned`; they do not change any permanent Windows setting.
@@ -254,15 +268,18 @@ https://api.mumuplayer.com/api/dl/win?channel=gw-win-download
 </details>
 
 <details>
-<summary><b>🧪 Run the smoke tests (developers)</b></summary>
+<summary><b>🧪 Run the tests (developers)</b></summary>
 
 <br>
 
 ```cmd
 powershell.exe -NoProfile -ExecutionPolicy RemoteSigned -File tests\Smoke.Tests.ps1
+powershell.exe -NoProfile -ExecutionPolicy RemoteSigned -File tests\Correctness.Tests.ps1
+powershell.exe -NoProfile -ExecutionPolicy RemoteSigned -File tests\GuestRecovery.Tests.ps1
+powershell.exe -NoProfile -ExecutionPolicy RemoteSigned -File tests\OneCommand.Tests.ps1
 ```
 
-The tests build temporary Global and Chinese fixtures, write test registry keys, and verify discovery, setup, restore, and live download resolution. They never install or launch MuMu.
+The tests build temporary Global and Chinese fixtures, write isolated test registry keys, and verify discovery, setup, restore, and live download resolution. Regression coverage includes UTF-8 preservation, interrupted writes and downloads, dry-run behavior, instance selection, process timeouts, startup failures, and Kitsune authorization/finalization order. The guest recovery suite uses Git for Windows Bash and temporary RC files to verify exact-backup recovery and rejection of unrelated edits. Launcher tests run when the test console is already elevated, using help commands and dummy helpers. The README command tests use curl with local fixture URLs to exercise fresh runs, repeat runs, and failed downloads. CI also checks launchers and README commands from PowerShell 7. The suites clean up their fixtures and never install or launch MuMu. Use `-SkipDownload` with the smoke suite for offline testing.
 
 </details>
 

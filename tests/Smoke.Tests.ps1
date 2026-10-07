@@ -10,12 +10,14 @@ $kitsuneScriptPath = Join-Path $repoRoot 'scripts\Kitsune.ps1'
 $guestSanitizerPath = Join-Path $repoRoot 'scripts\mumu-guest-sanitize.sh'
 $kitsuneApkPath = Join-Path $repoRoot 'Tools\app-release.apk'
 $testRoot = Join-Path ([System.IO.Path]::GetTempPath()) ("mumu-magisk-smoke-" + [Guid]::NewGuid().ToString('N'))
-$registryRootNative = 'HKEY_CURRENT_USER\Software\mumu-magisk-1click-tests\Uninstall'
+$testRegistryPs = 'HKCU:\Software\mumu-magisk-1click-tests-' + [Guid]::NewGuid().ToString('N')
+$testRegistryNative = $testRegistryPs.Replace('HKCU:', 'HKEY_CURRENT_USER')
+$registryRootNative = "$testRegistryNative\Uninstall"
 $registryRoot = "Registry::$registryRootNative"
 $userDataRoot = Join-Path $testRoot 'UserData\Netease'
-$classesRootNative = 'HKEY_CURRENT_USER\Software\mumu-magisk-1click-tests\Classes'
+$classesRootNative = "$testRegistryNative\Classes"
 $classesRoot = "Registry::$classesRootNative"
-$classesRootPs = 'HKCU:\Software\mumu-magisk-1click-tests\Classes'
+$classesRootPs = "$testRegistryPs\Classes"
 $commonArgs = @('--registry-root', $registryRoot, '--user-data-root', $userDataRoot, '--classes-root', $classesRoot)
 
 function Assert-True {
@@ -159,7 +161,7 @@ function New-MuMuFixture {
 '@ | Set-Content -LiteralPath (Join-Path $userTemplateRoot 'customer_config.json') -Encoding UTF8
 
     $keyName = $FolderName
-    $keyPath = "HKCU:\Software\mumu-magisk-1click-tests\Uninstall\$keyName"
+    $keyPath = "$testRegistryPs\Uninstall\$keyName"
     New-Item -Path $keyPath -Force | Out-Null
     New-ItemProperty -Path $keyPath -Name 'InstallLocation' -Value $installRoot -PropertyType String -Force | Out-Null
     New-ItemProperty -Path $keyPath -Name 'DisplayVersion' -Value "test-$Edition" -PropertyType String -Force | Out-Null
@@ -212,10 +214,6 @@ function Read-Json {
 
 try {
     New-Item -ItemType Directory -Path $testRoot -Force | Out-Null
-    if (Test-Path 'HKCU:\Software\mumu-magisk-1click-tests') {
-        Remove-Item -Path 'HKCU:\Software\mumu-magisk-1click-tests' -Recurse -Force
-    }
-
     $global = New-MuMuFixture -Edition 'Global' -FolderName 'MuMuPlayerGlobal-12.0'
     $chinese = New-MuMuFixture -Edition 'Chinese' -FolderName 'MuMuPlayer-12.0'
     New-ApkAssociationFixture -GlobalInstall $global
@@ -321,7 +319,7 @@ try {
     $inspectResult = @($inspectParsed)[0]
     Assert-True (@($inspectResult.files) -contains 'nx_main\configs\sample.ini') 'Install-level config inspection did not report nx_main sample.ini.'
 
-    Remove-Item -Path "HKCU:\Software\mumu-magisk-1click-tests\Uninstall\MuMuPlayerGlobal-12.0" -Recurse -Force
+    Remove-Item -LiteralPath "$testRegistryPs\Uninstall\MuMuPlayerGlobal-12.0" -Recurse -Force
     $findChineseOnly = Invoke-MuMuTool -Arguments (@('-Action', 'FindInstall', '--edition', 'auto') + $commonArgs + @('--json'))
     Assert-True ($findChineseOnly.ExitCode -eq 0) "FindInstall Chinese-only failed: $($findChineseOnly.Output)"
     $chineseParsed = $findChineseOnly.Output | ConvertFrom-Json
@@ -360,9 +358,18 @@ try {
     Write-Host 'Smoke tests passed.'
 } finally {
     if (Test-Path -LiteralPath $testRoot) {
+        $resolvedTestRoot = [IO.Path]::GetFullPath($testRoot)
+        $tempPrefix = [IO.Path]::GetFullPath([IO.Path]::GetTempPath()).TrimEnd('\') + '\'
+        if (-not $resolvedTestRoot.StartsWith($tempPrefix, [StringComparison]::OrdinalIgnoreCase) -or
+            (Split-Path -Leaf $resolvedTestRoot) -notmatch '^mumu-magisk-smoke-[a-f0-9]{32}$') { throw 'Unsafe test cleanup path.' }
+        # Remove our junction itself before recursively deleting the fixture.
+        if ($global -and $global.ExpectedBaseRoot) {
+            $junction = Get-Item -LiteralPath $global.ExpectedBaseRoot -Force -ErrorAction SilentlyContinue
+            if ($junction -and $junction.LinkType -eq 'Junction') { [IO.Directory]::Delete($junction.FullName) }
+        }
         Remove-Item -LiteralPath $testRoot -Recurse -Force
     }
-    if (Test-Path 'HKCU:\Software\mumu-magisk-1click-tests') {
-        Remove-Item -Path 'HKCU:\Software\mumu-magisk-1click-tests' -Recurse -Force
+    if (Test-Path -LiteralPath $testRegistryPs) {
+        Remove-Item -LiteralPath $testRegistryPs -Recurse -Force
     }
 }
