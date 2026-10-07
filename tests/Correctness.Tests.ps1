@@ -2,6 +2,8 @@ $ErrorActionPreference = 'Stop'
 $repoRoot = Split-Path -Parent $PSScriptRoot
 $testRoot = Join-Path ([IO.Path]::GetTempPath()) ('mumu-correctness-' + [Guid]::NewGuid().ToString('N'))
 $script:Assertions = 0
+$script:PausePrompt = (& $env:ComSpec /d /c 'pause <nul' | Out-String).Trim()
+if ([string]::IsNullOrWhiteSpace($script:PausePrompt)) { throw 'Could not determine the native pause prompt.' }
 
 function Assert-True {
     param([bool]$Condition, [string]$Message)
@@ -55,12 +57,19 @@ function Invoke-Launcher {
                 $resultSeen = $line -match 'failed with exit code [0-9]+'
             } while (-not $resultSeen -and [DateTime]::UtcNow -lt $deadline)
             Assert-True ($resultSeen) "Launcher did not reach its result prompt: $Path"
-            Assert-True (-not $process.WaitForExit(500)) "Launcher closed before acknowledging its result: $Path"
-            $process.StandardInput.WriteLine(' ')
-            $process.StandardInput.Flush()
+            # Service-hosted Windows runners can return from native pause without
+            # a console. Verify its localized prompt in both environments, and
+            # acknowledge it only when a console actually waits for input.
+            if (-not $process.WaitForExit(500)) {
+                $process.StandardInput.WriteLine(' ')
+                $process.StandardInput.Flush()
+            }
         }
         $stdout = $process.StandardOutput.ReadToEndAsync()
         Assert-True ($process.WaitForExit(30000)) "Launcher hung: $Path"
+        if ($ExpectPause) {
+            Assert-True ($stdout.Result.Trim() -eq $script:PausePrompt) "Launcher did not request acknowledgement: $Path. Remaining output: $($stdout.Result)"
+        }
         return [pscustomobject]@{ ExitCode = $process.ExitCode; Text = $prefix + $stdout.Result + $stderr.Result }
     } finally {
         if (-not $process.HasExited) {
