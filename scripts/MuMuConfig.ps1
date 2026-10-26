@@ -1647,6 +1647,20 @@ function Resolve-RedirectUrl {
     return $resolved.AbsoluteUri
 }
 
+function Assert-MuMuDownloadUrl {
+    param([string]$Url, [switch]$Final)
+
+    $uri = $null
+    if (-not [Uri]::TryCreate($Url, [UriKind]::Absolute, [ref]$uri) -or
+        $uri.Scheme -ne 'https' -or $uri.Port -ne 443 -or $uri.UserInfo -or
+        @('api.mumuplayer.com', 'a11.gdl.netease.com') -notcontains $uri.DnsSafeHost) {
+        throw "Untrusted MuMu download URL: $Url"
+    }
+    if ($Final -and ($uri.DnsSafeHost -ne 'a11.gdl.netease.com' -or $uri.AbsolutePath -notmatch '\.exe$')) {
+        throw "Expected an official MuMu Windows EXE: $Url"
+    }
+}
+
 function Resolve-MuMuDownload {
     $headers = @{
         Referer = 'https://www.mumuplayer.com/download/'
@@ -1656,14 +1670,16 @@ function Resolve-MuMuDownload {
     $downloadUrl = 'https://api.mumuplayer.com/api/dl/win?channel=gw-win-download'
 
     $metadata = Invoke-RestMethod -Uri $metadataUrl -Headers $headers -UseBasicParsing -TimeoutSec 30
-    $win = @($metadata.data | Where-Object { $_.platform -eq 'win' } | Select-Object -First 1)
-    if ($win.Count -eq 0) {
-        throw 'Global version metadata did not include a Windows entry.'
+    $win = @($metadata.data | Where-Object { $_.platform -eq 'win' })
+    if ($win.Count -ne 1 -or [string]$win[0].version -notmatch '^\d+\.\d+\.\d+(?:\.\d+)?$' -or
+        [string]$win[0].update_time -notmatch '^\d+$') {
+        throw 'Global version metadata did not include one valid Windows release.'
     }
 
     $chain = New-Object System.Collections.Generic.List[object]
     $current = $downloadUrl
     for ($i = 0; $i -lt 8; $i++) {
+        Assert-MuMuDownloadUrl -Url $current
         $response = Invoke-HeadRequest -Url $current
         try {
             $statusCode = [int]$response.StatusCode
@@ -1705,6 +1721,8 @@ function Resolve-MuMuDownload {
         throw 'Global download redirect chain did not reach a successful final response.'
     }
     $finalUrl = $final.url
+    Assert-MuMuDownloadUrl -Url $finalUrl -Final
+    if ($final.content_length -le 0) { throw 'MuMu installer response did not include a positive Content-Length.' }
 
     $exeInChain = @($chain | Where-Object { $_.url -match '\.exe(\?|$)' -or $_.location -match '\.exe(\?|$)' })
     if ($exeInChain.Count -eq 0 -and $finalUrl -notmatch '\.exe(\?|$)') {
@@ -1721,6 +1739,7 @@ function Resolve-MuMuDownload {
             $md5Hex = $etag.ToLowerInvariant()
         }
     }
+    if ($md5Hex -notmatch '^[a-fA-F0-9]{32}$') { throw 'MuMu installer response did not include a valid MD5 checksum.' }
 
     return [pscustomobject]@{
         metadata_version         = $win[0].version
@@ -1778,7 +1797,7 @@ function Save-MuMuInstaller {
     try {
         Write-Log 'Downloading Global MuMu installer:'
         Write-Log $Info.final_url
-        Invoke-WebRequest -UseBasicParsing -Uri $Info.final_url -Headers $headers -OutFile $temporaryOutput -TimeoutSec 120
+        Invoke-WebRequest -UseBasicParsing -Uri $Info.final_url -Headers $headers -OutFile $temporaryOutput -TimeoutSec 120 -MaximumRedirection 0
 
         $file = Get-Item -LiteralPath $temporaryOutput
         $downloadedLength = $file.Length
@@ -1789,20 +1808,23 @@ function Save-MuMuInstaller {
         if ($Info.final_md5_hex -and $fileHash -ne $Info.final_md5_hex.ToLowerInvariant()) {
             throw "Downloaded installer MD5 mismatch. Expected $($Info.final_md5_hex), got $fileHash."
         }
+        $sha256 = (Get-FileHash -LiteralPath $temporaryOutput -Algorithm SHA256).Hash.ToLowerInvariant()
 
         $metadataLines = @(
             'Global MuMu installer resolved via official API.',
+            'ArtifactType=WindowsBootstrap',
             "MetadataVersion=$($Info.metadata_version)",
             "MetadataUpdateTimeUtc=$($Info.metadata_update_time_utc)",
             "CdnFile=$([System.IO.Path]::GetFileName(([Uri]$Info.final_url).AbsolutePath))",
             "ContentLength=$($Info.content_length)",
             "MD5=$fileHash",
+            "SHA256=$sha256",
             "ETag=$($Info.final_etag)",
             "LastModified=$($Info.final_last_modified)",
             "DownloadApi=$($Info.download_api)"
         )
         $utf8NoBom = New-Object System.Text.UTF8Encoding($false)
-        [System.IO.File]::WriteAllText($temporaryMetadata, (($metadataLines -join [Environment]::NewLine) + [Environment]::NewLine), $utf8NoBom)
+        [System.IO.File]::WriteAllText($temporaryMetadata, (($metadataLines -join "`n") + "`n"), $utf8NoBom)
 
         # A failed transfer or verification must leave the previous installer intact.
         foreach ($pair in @(@($temporaryOutput, $resolvedOutput), @($temporaryMetadata, $resolvedMetadata))) {
@@ -1824,6 +1846,7 @@ function Save-MuMuInstaller {
         filename          = $Info.filename
         content_length    = $downloadedLength
         md5               = $fileHash
+        sha256            = $sha256
         metadata_version  = $Info.metadata_version
         final_url         = $Info.final_url
     }

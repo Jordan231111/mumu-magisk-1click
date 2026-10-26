@@ -70,6 +70,8 @@ MuMu's vendor daemon stays available until the direct-system files pass verifica
 
 The complete install and three subsequent cold boots were verified on **MuMu Global 6.8.0 / Android 12** with the bundled APK. An interrupted preparation from the older helper was also recovered and its Direct Install option restored.
 
+Android readiness was also verified on **MuMu Global 6.8.5 / Android 12L** using three cold boots of a disposable instance, which was deleted after the test. The helper recognizes both `-v N` and `--vm MuMuPlayerGlobal-12.0-N`. It uses a successful, bounded `sys.boot_completed=1` shell probe to establish readiness even when Windows process metadata is unavailable. A missing frontend PID no longer causes a booted guest to be stopped and relaunched ([issue #7](https://github.com/Jordan231111/mumu-magisk-1click/issues/7)).
+
 ---
 
 ## ✅ Before you start
@@ -256,7 +258,18 @@ The same flags work on `RestoreMuMuConfig.bat`. Run a dry-run first if you're un
 
 <br>
 
-The bundled `MuMuInstaller_Global.exe` is the **official** Global installer. CI resolves it through MuMu's own API, follows the redirect chain, and fails unless the final URL is an `.exe` from `a11.gdl.netease.com` with a `200` response. It then downloads the file in CI and compares size + MD5 against the committed copy. Metadata is tracked in [installer-url.txt](installer-url.txt), and a scheduled job opens an update PR when MuMu ships a new version.
+The bundled `MuMuInstaller_Global.exe` is the **official Windows bootstrap installer**. MuMu's API can advertise a newer player release while serving identical bootstrap bytes: on October 25, 2026 it advertised player **6.8.5** but still served the July `MuMu_6.0.1_...exe`. A bootstrap downloads the current player during installation; its filename does not pin the installed player version. This repository does not bundle a macOS DMG or an offline player image.
+
+The **Update MuMu installer** workflow runs daily at **08:37 UTC** and can also be run manually from Actions. It resolves MuMu's API, permits HTTPS redirects only through the official API/CDN, and requires a successful final EXE response. It downloads the complete file into staging and checks its size, CDN MD5, SHA-256, and valid **NetEase Authenticode signature** before replacing the bundled EXE and [installer-url.txt](installer-url.txt). An interrupted download or failed verification preserves the previous files; a failed metadata replacement rolls back the EXE. Identical downloads produce no commit, while a new advertised release still updates metadata if the bootstrap is unchanged.
+
+After the updated checkout passes the regression suites, the workflow commits these two files directly to the default branch using `GITHUB_TOKEN`. It does not wait for a bot PR to be approved or merged. Publication uses a normal push; branch protection or a concurrent branch update makes the job fail visibly. The existing installer PR #6 can be closed after this workflow is deployed. Ordinary CI verifies the committed file against its recorded hashes and signature without requiring it to match a moving upstream release.
+
+To refresh or verify the download locally:
+
+```powershell
+powershell.exe -NoProfile -ExecutionPolicy RemoteSigned -File .\scripts\Update-MuMuInstaller.ps1
+powershell.exe -NoProfile -ExecutionPolicy RemoteSigned -File .\scripts\Update-MuMuInstaller.ps1 -VerifyOnly
+```
 
 No project can guarantee that every antivirus product will avoid a false positive, especially for admin scripts that stop emulator processes and edit emulator config files. This repo is kept as transparent as possible: no encoded PowerShell, VBS elevation helper, random temporary downloader, post-elevation self-update, obfuscation, persistence, credential access, hosts/firewall edits, antivirus exclusion, or antivirus tampering. Network downloads in the README are explicit and complete before the standard UAC prompt. The committed installer is the official Global MuMu installer resolved by CI from MuMu's API.
 
@@ -279,7 +292,13 @@ powershell.exe -NoProfile -ExecutionPolicy RemoteSigned -File tests\GuestRecover
 powershell.exe -NoProfile -ExecutionPolicy RemoteSigned -File tests\OneCommand.Tests.ps1
 ```
 
-The tests build temporary Global and Chinese fixtures, write isolated test registry keys, and verify discovery, setup, restore, and live download resolution. Regression coverage includes UTF-8 preservation, interrupted writes and downloads, dry-run behavior, instance selection, process timeouts, startup failures, and Kitsune authorization/finalization order. The guest recovery suite uses Git for Windows Bash and temporary RC files to verify exact-backup recovery and rejection of unrelated edits. Launcher tests run when the test console is already elevated, using help commands and dummy helpers. The README command tests use curl with local fixture URLs to exercise fresh runs, repeat runs, and failed downloads. CI also checks launchers and README commands from PowerShell 7. The suites clean up their fixtures and never install or launch MuMu. Use `-SkipDownload` with the smoke suite for offline testing.
+Run `powershell.exe -NoProfile -ExecutionPolicy RemoteSigned -File .\tests\Run.Tests.ps1` for the regression suites used by CI. They build temporary Global and Chinese fixtures, use isolated registry keys, and verify discovery, setup, restore, boot detection, and installer updates. Coverage includes both MuMu process formats, absent process metadata, failed boot probes, interrupted downloads, invalid signatures, unchanged bootstraps, metadata-only releases, and rollback if one file cannot be replaced. Existing coverage includes UTF-8 preservation, dry runs, instance selection, process timeouts, guest recovery, and Kitsune authorization/finalization order. Launcher tests use help commands and dummy helpers when already elevated. README command tests use curl with local fixture URLs. Selected suites also run in PowerShell 7. The normal regression suites clean up their fixtures and never install or launch MuMu. Run the smoke suite without `-SkipDownload` to additionally check live download resolution.
+
+The separate live boot test is opt-in and requires an installed Android 12 engine. It creates a fresh instance, verifies three cold boots, then shuts down and deletes only that instance in a `finally` block and checks the original directory inventory:
+
+```powershell
+powershell.exe -NoProfile -ExecutionPolicy RemoteSigned -File .\tests\Boot.Integration.Tests.ps1 -InstallRoot 'C:\Program Files\Netease\MuMuPlayerGlobal-12.0' -Boots 3
+```
 
 </details>
 

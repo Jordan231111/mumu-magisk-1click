@@ -181,7 +181,7 @@ try {
         $script:Options = @{ Json = $true }
         function Invoke-RestMethod {
             param($Uri, $Headers, [switch]$UseBasicParsing, $TimeoutSec)
-            [pscustomobject]@{ data = @([pscustomobject]@{ platform = 'win'; version = 'test'; update_time = 0 }) }
+            [pscustomobject]@{ data = @([pscustomobject]@{ platform = 'win'; version = '6.8.5'; update_time = 0 }) }
         }
         function Invoke-HeadRequest {
             param($Url)
@@ -253,7 +253,7 @@ try {
         Assert-True (-not $inventory[1].is_process_started -and $inventory[1].headless_pid -eq 0) 'Another MuMu edition was mistaken for this one.'
         $script:ProbedIndices = @()
         $one = @(Get-InstanceInventoryFromDisk -Context $context -ProcessSnapshot $snapshot -Instance '2')
-        Assert-True ($one.Count -eq 1 -and $script:ProbedIndices.Count -eq 0) 'Polling one stopped instance queried other running guests.'
+        Assert-True ($one.Count -eq 1 -and $script:ProbedIndices.Count -eq 1 -and $script:ProbedIndices[0] -eq '2') 'Polling one instance must probe that guest without querying other running guests.'
 
         function Get-AllInstanceInfo {
             param($Context)

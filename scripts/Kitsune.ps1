@@ -379,11 +379,14 @@ function Get-InstanceInventoryFromDisk {
             }
         }
 
-        $indexPattern = '(?:^|\s)-v\s+"?' + [regex]::Escape($index) + '"?(?:\s|$)'
+        $indexArgument = '(?:"' + [regex]::Escape($index) + '"|' + [regex]::Escape($index) + ')(?=\s|$)'
+        $vmArgument = '(?:"' + [regex]::Escape($directory.Name) + '"|' + [regex]::Escape($directory.Name) + ')(?=\s|$)'
+        $indexPattern = '(?:^|\s)(?:-v|--vmindex)(?:\s+|=)' + $indexArgument
+        $deviceVmPattern = '(?:^|\s)--vm(?:\s+|=)' + $vmArgument
         $device = @($devices | Where-Object {
-            [string]$_.CommandLine -match $indexPattern
+            [string]$_.CommandLine -match $indexPattern -or [string]$_.CommandLine -match $deviceVmPattern
         } | Sort-Object CreationDate -Descending | Select-Object -First 1)
-        $vmPattern = '(?:^|[\s"\\])' + [regex]::Escape($directory.Name) + '(?:\s|"|$)'
+        $vmPattern = '(?:^|\s)--comment(?:\s+|=)' + $vmArgument
         # The hypervisor can live outside this install. Match the complete VM name,
         # including its edition, rather than just the Android version and index.
         $headless = @($ProcessSnapshot.Headless | Where-Object {
@@ -391,11 +394,15 @@ function Get-InstanceInventoryFromDisk {
         } | Sort-Object CreationDate -Descending | Select-Object -First 1)
 
         $androidStarted = $false
-        if ($headless.Count -eq 1) {
+        $probe = $null
+        # The selected instance is probed even when Windows process metadata is
+        # unavailable or a new MuMu build changes its process arguments again.
+        # Inventory scans probe only active guests, avoiding unrelated instances.
+        if ($Instance -or $device.Count -eq 1 -or $headless.Count -eq 1) {
             $probe = Invoke-Manager -Context $Context -Arguments @(
                 'sh', '-v', $index, '-c', 'getprop sys.boot_completed'
             ) -Description "MuMu Android-ready probe for instance $index" -TimeoutSeconds 5 -AllowFailure
-            $androidStarted = ($probe.ExitCode -eq 0 -and $probe.Text -match '(^|\s)1(\s|$)')
+            $androidStarted = ($probe.ExitCode -eq 0 -and -not $probe.TimedOut -and $probe.Text.Trim() -eq '1')
         }
 
         $instances += [pscustomobject]@{
@@ -407,13 +414,16 @@ function Get-InstanceInventoryFromDisk {
             created_timestamp     = $createdTimestamp
             last_launch_timestamp = $lastLaunchTimestamp
             info_source           = 'verified-vm-metadata'
-            is_process_started    = ($device.Count -eq 1)
+            is_process_started    = ($device.Count -eq 1 -or $headless.Count -eq 1)
             is_android_started    = $androidStarted
             pid                   = if ($device.Count -eq 1) { [int]$device[0].ProcessId } else { 0 }
             headless_pid          = if ($headless.Count -eq 1) { [int]$headless[0].ProcessId } else { 0 }
-            player_state          = if ($androidStarted) { 'start_finished' } elseif ($headless.Count -eq 1) { 'starting' } else { 'stopped' }
+            player_state          = if ($androidStarted) { 'start_finished' } elseif ($device.Count -eq 1 -or $headless.Count -eq 1) { 'starting' } else { 'stopped' }
             launch_err_code       = 0
             launch_err_msg        = ''
+            boot_probe_exit_code  = if ($probe) { $probe.ExitCode } else { $null }
+            boot_probe_timed_out  = if ($probe) { [bool]$probe.TimedOut } else { $false }
+            boot_probe_output     = if ($probe) { $probe.Text } else { '' }
         }
     }
 
@@ -469,7 +479,7 @@ function Stop-Instance {
     if ([int]$info.headless_pid -gt 0) {
         $headlessAlive = [bool](Get-Process -Id ([int]$info.headless_pid) -ErrorAction SilentlyContinue)
     }
-    if (-not [bool]$info.is_android_started -and -not $headlessAlive) {
+    if (-not [bool]$info.is_process_started -and -not [bool]$info.is_android_started -and -not $headlessAlive) {
         Start-Sleep -Seconds 2
         return
     }
@@ -485,7 +495,7 @@ function Stop-Instance {
         if ([int]$info.headless_pid -gt 0) {
             $headlessAlive = [bool](Get-Process -Id ([int]$info.headless_pid) -ErrorAction SilentlyContinue)
         }
-        if (-not [bool]$info.is_android_started -and -not $headlessAlive) {
+        if (-not [bool]$info.is_process_started -and -not [bool]$info.is_android_started -and -not $headlessAlive) {
             if (-not $stableSince) { $stableSince = [DateTime]::UtcNow }
             if (([DateTime]::UtcNow - $stableSince).TotalSeconds -ge 5) {
                 Start-Sleep -Seconds 2
@@ -504,39 +514,41 @@ function Stop-Instance {
 }
 
 function Start-Instance {
-    param([Parameter(Mandatory = $true)]$Context)
+    param(
+        [Parameter(Mandatory = $true)]$Context,
+        [ValidateRange(1, 600)][int]$TimeoutSeconds = 120,
+        [ValidateRange(1, 3)][int]$MaxAttempts = 3
+    )
 
-    for ($attempt = 1; $attempt -le 3; $attempt++) {
-        Write-Step "Launching instance $($Context.Instance) (verified attempt $attempt of 3)"
+    $info = Get-InstanceInfo -Context $Context
+    if ([bool]$info.is_android_started) {
+        Write-Step "Instance $($Context.Instance) is already Android-ready"
+        return $info
+    }
+
+    for ($attempt = 1; $attempt -le $MaxAttempts; $attempt++) {
+        Write-Step "Launching instance $($Context.Instance) (verified attempt $attempt of $MaxAttempts)"
         [void](Invoke-Manager -Context $Context -Arguments @('control', '-v', $Context.Instance, 'launch') -Description 'MuMu launch' -AllowFailure -ShowOutput)
-        $deadline = [DateTime]::UtcNow.AddSeconds(120)
+        $deadline = [DateTime]::UtcNow.AddSeconds($TimeoutSeconds)
         do {
-            Start-Sleep -Seconds 1
             $info = Get-InstanceInfo -Context $Context
-            if ([bool]$info.is_process_started -and [bool]$info.is_android_started -and
-                [string]$info.player_state -eq 'start_finished') {
-                $bootDeadline = [DateTime]::UtcNow.AddSeconds(30)
-                do {
-                    $bootResult = Invoke-Manager -Context $Context -Arguments @(
-                        'sh', '-v', $Context.Instance, '-c', 'getprop sys.boot_completed'
-                    ) -Description 'Android boot check' -AllowFailure
-                    if ($bootResult.Text -match '(^|\s)1(\s|$)') {
-                        Write-Step "Instance $($Context.Instance) is Android-ready"
-                        return (Get-InstanceInfo -Context $Context)
-                    }
-                    Start-Sleep -Seconds 1
-                } while ([DateTime]::UtcNow -lt $bootDeadline)
+            # Get-InstanceInfo already verifies an exact sys.boot_completed=1
+            # response and a successful, bounded shell command. A frontend PID
+            # is diagnostic information, not an additional Android boot gate.
+            if ([bool]$info.is_android_started) {
+                Write-Step "Instance $($Context.Instance) is Android-ready"
+                return $info
             }
             if ([int]$info.launch_err_code -ne 0) { break }
+            Start-Sleep -Seconds 1
         } while ([DateTime]::UtcNow -lt $deadline)
 
-        if ($attempt -lt 3) {
+        if ($attempt -lt $MaxAttempts) {
             Write-Step 'MuMu did not reach Android-ready state; retrying after a clean stop'
             Stop-Instance -Context $Context
         }
     }
-    $finalInfo = Get-InstanceInfo -Context $Context
-    throw "Instance $($Context.Instance) failed to boot. state=$($finalInfo.player_state), code=$($finalInfo.launch_err_code), message=$($finalInfo.launch_err_msg)"
+    throw "Instance $($Context.Instance) failed to boot after $MaxAttempts attempt(s). state=$($info.player_state), code=$($info.launch_err_code), message=$($info.launch_err_msg), device_pid=$($info.pid), headless_pid=$($info.headless_pid), boot_probe_exit=$($info.boot_probe_exit_code), boot_probe_timed_out=$($info.boot_probe_timed_out), boot_probe_output=$($info.boot_probe_output)"
 }
 
 function Invoke-ColdBoot {

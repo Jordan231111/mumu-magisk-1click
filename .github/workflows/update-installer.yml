@@ -1,0 +1,75 @@
+name: Update MuMu installer
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '37 8 * * *'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: update-global-mumu-installer
+  cancel-in-progress: false
+
+jobs:
+  update-installer:
+    name: Update official Windows download
+    if: github.ref == format('refs/heads/{0}', github.event.repository.default_branch)
+    runs-on: windows-latest
+    timeout-minutes: 20
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout default branch
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+
+      - name: Download and verify current official installer
+        id: installer
+        shell: powershell
+        run: |
+          powershell.exe -NoProfile -ExecutionPolicy RemoteSigned -File .\scripts\Update-MuMuInstaller.ps1
+          if ($LASTEXITCODE -ne 0) { throw 'Installer update failed; no update will be committed.' }
+
+      # GITHUB_TOKEN pushes do not trigger push CI. Validate the actual updated
+      # checkout here before publishing, without a bot PR approval dependency.
+      - name: Verify updated installer
+        if: steps.installer.outputs.changed == 'true'
+        shell: powershell
+        run: |
+          powershell.exe -NoProfile -ExecutionPolicy RemoteSigned -File .\scripts\Update-MuMuInstaller.ps1 -VerifyOnly
+          if ($LASTEXITCODE -ne 0) { throw 'Updated installer verification failed.' }
+
+      - name: Test updated checkout
+        if: steps.installer.outputs.changed == 'true'
+        shell: powershell
+        run: |
+          powershell.exe -NoProfile -ExecutionPolicy RemoteSigned -File .\tests\Run.Tests.ps1
+          if ($LASTEXITCODE -ne 0) { throw 'Regression suites failed; no update will be committed.' }
+
+      - name: Commit installer and metadata to default branch
+        if: steps.installer.outputs.changed == 'true'
+        shell: powershell
+        env:
+          DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+          UPSTREAM_VERSION: ${{ steps.installer.outputs.version }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          git config --local user.name 'github-actions[bot]'
+          if ($LASTEXITCODE -ne 0) { throw 'Could not configure git author.' }
+          git config --local user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          if ($LASTEXITCODE -ne 0) { throw 'Could not configure git email.' }
+          git add -- MuMuInstaller_Global.exe installer-url.txt
+          if ($LASTEXITCODE -ne 0) { throw 'Could not stage installer update.' }
+          git diff --cached --quiet
+          if ($LASTEXITCODE -ne 1) { throw 'Expected exactly an installer or metadata change to commit.' }
+          git commit -m "Update Global MuMu download for $env:UPSTREAM_VERSION"
+          if ($LASTEXITCODE -ne 0) { throw 'Could not commit installer update.' }
+          git push origin "HEAD:refs/heads/$env:DEFAULT_BRANCH"
+          if ($LASTEXITCODE -ne 0) {
+            throw 'Could not publish installer update. Check branch protection or rerun if the default branch advanced. No force push was attempted.'
+          }
+          Add-Content -LiteralPath $env:GITHUB_STEP_SUMMARY -Value "Published the verified download and metadata to $env:DEFAULT_BRANCH." -Encoding UTF8
