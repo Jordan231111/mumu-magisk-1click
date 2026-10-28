@@ -1,7 +1,7 @@
 Global MuMu installer resolved via official API.
 ArtifactType=WindowsBootstrap
-MetadataVersion=6.8.5
-MetadataUpdateTimeUtc=2026-10-13 09:20:01Z
+MetadataVersion=6.8.9
+MetadataUpdateTimeUtc=2026-10-28 03:35:35Z
 CdnFile=MuMu_6.0.1_gw-win-download_all_1783407295.exe
 ContentLength=6100936
 MD5=63d7274e3a2b37c4d873eccb37fd9449
